@@ -1,3 +1,15 @@
+<head>
+    <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+            tex2jax: {
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+            inlineMath: [['$','$']]
+            }
+        });
+    </script>
+</head>
+
 # 摘要
 为了最大限度地缩短车辆的总充电时间和平衡充电站的负载，越来越需要充电站推荐。为了满足这一需求，我们将推荐问题建模为马尔可夫决策过程(MDP)问题。然而，传统的MDP模型存在“维度诅咒”的问题。针对这一问题，我们提出了MDP的一种扩展：多阶段MDP，将MDP的状态转换分解为多个阶段，以减少状态空间和状态转换的复杂度。这是通过引入MDP中定义的正常状态以外的两种状态来实现的：后决策状态和中间决策状态。在此基础上，提出了一种基于在线学习的多阶段MDP模型求解算法。由于减少了状态空间和状态转移的复杂度，该在线算法能够快速收敛。通过与基于博弈论的推荐机制和基于Q-学习的推荐机制的比较，仿真结果表明本文提出的推荐方案具有良好的性能。
 # 1. 引言
