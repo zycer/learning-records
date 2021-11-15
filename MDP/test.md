@@ -118,6 +118,7 @@ MDP中的策略是一个映射![](https://cdn.nlark.com/yuque/__latex/a47aee14e6
 其中![](https://cdn.nlark.com/yuque/__latex/d242838df85274ef228794bb684810a6.svg#card=math&code=s_1%3Ds&id=B8uge)，![](https://cdn.nlark.com/yuque/__latex/b2a3752a8ba12ce39ddd915714f14420.svg#card=math&code=%CE%BB%28%3C1%29&id=fBoLo)是一个不变的折扣因子。设![](https://cdn.nlark.com/yuque/__latex/0a07ea387f06fdb2fae6eda52896dae0.svg#card=math&code=v%5E%2A%28s%29&id=uf9vE)表示在最优策略下对状态s的奖励，理论上可以通过递归求解下面的Bellman方程得到它：
 
 ![](https://cdn.nlark.com/yuque/__latex/64fdb0f0e27b04f8cdb5b4b844ec22a2.svg#card=math&code=v%5E%2A%28s%29%3D%5Cmax%5Climits_%7Ba%20%5Cin%20%5Cmathbb%7BA%7D%7D%5C%7B%0Ar_a%28s%29%2B%5Clambda%20%5Csum_%7Bs%27%7Dp%28s%27%7Cs%2Ca%29v%5E%2A%28s%27%29%0A%5C%7D%20%5Cqquad%20%282%29&id=jAtY8)
+
 其中![](https://cdn.nlark.com/yuque/__latex/085c9f0df11642cf704f40ffdf753055.svg#card=math&code=s%27&id=w0zvX)是![](https://cdn.nlark.com/yuque/__latex/03c7c0ace395d80182db07ae2c30f034.svg#card=math&code=s&id=Rgxx4)的下一个状态。
 ​
 
