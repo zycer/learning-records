@@ -77,7 +77,7 @@ LP（或IP）也用于CS推荐。Ni等人[15]研究了CS关于电池交换的建
 由于推荐问题和调度问题紧密联系在一起，以往的工作也同时解决了这两个问题。在[35]中，提出的系统对每个收费请求进行重新计算和调度，以使总收入最大化。将该问题转化为一个优化问题，并采用一种称为投标-价格控制的启发式方法求解该模型。在[36]中，作者的目标是同时优化调度（充电时间）和推荐。他们通过最小化充电成本来安排电动汽车的充电时间，并通过最小化充电时间来推荐CS。[37]的作者使用博弈论方法设计了多组公共电动汽车竞争容量有限的充电站的时空调度。
 # 3. 问题描述
 我们考虑的EV充电基础设施的控制和管理的推荐系统。推荐系统的目的是通过对每个计费请求进行最佳推荐，使总计费时间最小化，并实现CSs之间的负载平衡。我们将电动汽车充电过程描述如下（图1）。
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/20357720/1636379943801-8ef4621c-dc75-430c-9d14-52ad58268010.png#clientId=u83e02f10-3884-4&from=paste&height=732&id=udec957c2&margin=%5Bobject%20Object%5D&name=image.png&originHeight=1464&originWidth=1892&originalType=binary&ratio=1&size=207225&status=done&style=none&taskId=u86cfa99f-88bf-442b-8d23-71a613b4b5f&width=946)
+![image](https://user-images.githubusercontent.com/35062742/141772559-b98417cc-8366-4719-8076-8fc197459b0d.png)
 
 - 当EV耗尽其能量时，驾驶员通过例如APP向推荐系统发送充电请求；
 - 在接收到该请求时，推荐系统根据系统的状态做出决定（选择CS）（状态定义请参阅第三节）；
@@ -87,9 +87,10 @@ LP（或IP）也用于CS推荐。Ni等人[15]研究了CS关于电池交换的建
 
 用Voronoi图划分整个充电区Z（图2）。对于CS集$$\{c_1,c_2,...,c_{n-1},c_n\}$$，其中$$n$$是区域中CS的数目。$$c_i$$站的区域$$Ri$$定义为：
 $$R_i =\{l∈Z|d(l,c_i)<d(l,c_j),j≤n,j\neq i\}$$
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/20357720/1636380337474-aea40fcb-0897-4d56-8c7b-c411f93cb418.png#clientId=u83e02f10-3884-4&from=paste&height=555&id=ub0c73a7e&margin=%5Bobject%20Object%5D&name=image.png&originHeight=1110&originWidth=1668&originalType=binary&ratio=1&size=336043&status=done&style=none&taskId=uc9ef7e3b-c0db-47d2-9a0d-bd7d8d2a104&width=834)
-与以往的推荐通常在固定的时间间隔（时间触发器）触发不同，我们的推荐是由计费请求（事件触发器）触发的。显然，事件触发机制比时间触发机制有优势，因为它可以立即接收推荐，而 后者应该等待触发时间。在我们的提议中，时间范围由EV的充电请求来划分，如图3所示：
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/20357720/1636638938947-65e164ed-1652-4129-b26a-049e045200c3.png#clientId=u638d0723-81d1-4&from=paste&height=341&id=u6da1ef33&margin=%5Bobject%20Object%5D&name=image.png&originHeight=682&originWidth=1854&originalType=binary&ratio=1&size=289543&status=done&style=none&taskId=u8771099f-7f3c-4343-92f1-5a1dfb1d35e&width=927)
+![image (2)](https://user-images.githubusercontent.com/35062742/141772633-c6fd4069-4f81-4e9e-9698-d7e7ba9a669d.png)
+
+与以往的推荐通常在固定的时间间隔（时间触发器）触发不同，我们的推荐是由计费请求（事件触发器）触发的。显然，事件触发机制比时间触发机制有优势，因为它可以立即接收推荐，而 后者应该等待触发时间。在我们的提议中，时间范围由EV的充电请求来划分，如图3所示：
+![image (3)](https://user-images.githubusercontent.com/35062742/141772697-7447c68c-87ae-4a54-9143-682e071e7964.png)
 
 
 充电请求到达的随机性使得决策周期（两个连续到达之间的间隔）发生变化。在每个决策时刻t，系统接收充电请求，并对CS建议做出决策，即请求电动汽车应驱动至哪个CS。在收到此建议后，车辆将花费$$τ_d$$的行驶时间与$$τ_w$$的排队时间（如果有可用的充电桩，$$τ_w = 0$$）和$$τ_c$$的充电时间。
@@ -136,7 +137,8 @@ r_a(s)+\lambda \sum_{s'}p(s'|s,a)v^*(s')
 
 # 4. 系统模型
 一个决策周期内的三个阶段在我们的提议中被定义，如图4所示：
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/20357720/1636804951029-8a18beac-4549-424c-9819-7f386415fb67.png#clientId=u890968dc-0e4a-4&from=paste&height=299&id=uf2f99dd0&margin=%5Bobject%20Object%5D&name=image.png&originHeight=598&originWidth=1676&originalType=binary&ratio=1&size=256896&status=done&style=none&taskId=u7ce63b80-622b-4110-b32a-66467d154a8&width=838)
+![image (4)](https://user-images.githubusercontent.com/35062742/141772791-7653ac6f-0cd1-49dd-9ceb-8c55f8176765.png)
+
 第一阶段介于正常状态s和PDS之间（我们用$$\hat{s}$$表示PDS）；第二阶段在PDS和IDS之间（我们使用$$\tilde{s}$$表示IDS）；第三阶段是IDS和下一个正常状态之间的阶段。为了降低状态空间的复杂性，我们让不同的状态取$$(M，X，V)$$的子集。正常状态重新定义为$$\mathbb{S} \triangleq (M,V)$$。这里，我们省略了到站电动汽车的状态，但让它在PDS和IDS中考虑。PDS和IDS定义相同，即$$\hat{S} \triangleq(M，X)$$，$$\tilde{S} \triangleq(M，X)$$。
 ​
 
@@ -185,7 +187,7 @@ $$v_{t+1}(\hat{s})=(1-\rho_t)v_t(\hat{s})+\rho_tv_{t+1}(\tilde{s}) \forall \tild
 IDS $$\tilde{s}（5）$$的值函数可以更新为：
 $$v_{t+1}(\tilde{s})=(1-\rho_t)v_t(\tilde{s})+\rho_tv_{t+1}(s) \forall s \qquad (9)$$
 算法1描述了CS推荐的在线算法。在每个决策时刻$$i$$，系统观察当前状态$$s_i$$（步骤4），并为此状态选择最佳动作（步骤5）。基于所选择的动作，系统可以确定PDS $$\hat{s_i}$$（步骤6）。之后，系统继续观察系统状态，直到下一个决策时刻，并记录IDS $$\tilde{s_i}$$（步骤7，提醒IDS是下一个决策时刻之前的最后一个中间状态）。在此决策期间，如果系统接收到任何充电终止信息，它将计算总充电时间并更新相关即时奖励$$r_a(s)$$（步骤8）。使用在线算法，我们在第三节中讨论$$r_a(s)$$的确定的挑战与简单的解决方法。
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/20357720/1636806009098-d1cfe28e-6ecc-458d-9aa5-328c3795a09d.png#clientId=u890968dc-0e4a-4&from=paste&height=643&id=u630edb68&margin=%5Bobject%20Object%5D&name=image.png&originHeight=1286&originWidth=1478&originalType=binary&ratio=1&size=221896&status=done&style=none&taskId=u61db4b76-e3ab-456f-b559-a9a4fad3c87&width=739)
+![image (5)](https://user-images.githubusercontent.com/35062742/141772939-dd8c1019-65a7-4ba9-9431-54391dfd3bb3.png)
 ​
 
 最后，系统应该分别使用（3）、（9）和（8）更新$$s$$，$$
