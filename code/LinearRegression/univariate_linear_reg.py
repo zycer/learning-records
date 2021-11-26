@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from LinearRegression.linear_reg import LinearRegression
 
 
-data = pd.read_csv("../data/test.csv")
+data = pd.read_csv("../data/data.csv")
 # 得到训练和测试数据
 train_data = data.sample(frac=0.8)
 test_data = data.drop(train_data.index)
