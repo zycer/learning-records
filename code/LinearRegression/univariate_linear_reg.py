@@ -10,8 +10,8 @@ data = pd.read_csv("../data/data.csv")
 train_data = data.sample(frac=0.8)
 test_data = data.drop(train_data.index)
 
-input_param_name = "a"
-output_param_name = "b"
+input_param_name = "soc"
+output_param_name = "distance"
 
 x_train = train_data[[input_param_name]].values
 y_train = train_data[[output_param_name]].values
