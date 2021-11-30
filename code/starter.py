@@ -10,5 +10,5 @@ if __name__ == "__main__":
 
     # 非线性
     ev_2 = EV(name="ev_2", k=4, b=3.2, t_discount=0.46)
-    ev_2.generate_ev_data(reg_type="cc")
+    # ev_2.generate_ev_data(reg_type="non_linear")
     multinomial_reg(ev_2.file_path, ev_2.attribute)

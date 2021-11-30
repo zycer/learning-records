@@ -4,7 +4,6 @@ from sklearn import linear_model as lm
 from sklearn import metrics as sm
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.graph_objs as go
 import plotly
 
