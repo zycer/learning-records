@@ -1,5 +1,6 @@
 from random_data import EV
 from LinearRegression.MultivariateLinearReg import multivariate_linear_reg
+from LinearRegression.multinomial_regression import multinomial_reg
 
 if __name__ == "__main__":
     # 线性
@@ -10,4 +11,4 @@ if __name__ == "__main__":
     # 非线性
     ev_2 = EV(name="ev_2", k=4, b=3.2, t_discount=0.46)
     ev_2.generate_ev_data(reg_type="cc")
-    multivariate_linear_reg(ev_2.file_path, ev_2.attribute, 1000)
+    multinomial_reg(ev_2.file_path, ev_2.attribute)
