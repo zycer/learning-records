@@ -4,6 +4,7 @@ from random_data2 import EV
 from LinearRegression.MultivariateLinearReg import multivariate_linear_reg
 from LinearRegression.multinomial_regression import multinomial_reg
 from LinearRegression.univariate_linear_reg import linear_reg
+from LinearRegression.multivariate_multinomial_regression import multivariate_mul_regression
 
 if __name__ == "__main__":
     # 线性
@@ -19,5 +20,5 @@ if __name__ == "__main__":
     ev_3 = EV("ev_3", 1.024, 100, 20, 3000, 0, 60)
     ev_3.generate_ev_data(100)
     # linear_reg(ev_3.file_path, ("weight", "distance"))
-
-    multinomial_reg(ev_3.file_path, ("soc", "battery_health", "distance"))
+    # multinomial_reg(ev_3.file_path, ("soc", "battery_health", "distance"))
+    multivariate_mul_regression(ev_3.file_path, ev_3.attribute)
