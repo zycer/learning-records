@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 from LinearRegression.linear_reg import LinearRegression
 
 
-def linear_reg(data_path):
+def linear_reg(data_path, attr):
     data = pd.read_csv(data_path)
     # 得到训练和测试数据
     train_data = data.sample(frac=0.8)
     test_data = data.drop(train_data.index)
 
-    input_param_name = "soc"
-    output_param_name = "distance"
+    input_param_name, output_param_name = attr
 
     x_train = train_data[[input_param_name]].values
     y_train = train_data[[output_param_name]].values
@@ -50,8 +49,8 @@ def linear_reg(data_path):
     plt.scatter(x_train, y_train, label="Train data")
     plt.scatter(x_test, y_test, label="Test data")
     plt.plot(x_predictions, y_predictions, 'r', label="Prediction")
-    plt.xlabel(input_param_name)
     plt.xlabel(output_param_name)
+    plt.xlabel(input_param_name)
     plt.title("Relationship between SOC and distance")
     plt.legend()
     plt.show()
