@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # multinomial_reg(ev_2.file_path, ev_2.attribute)
 
     ev_3 = EV("ev_3", 1.024, 100, 20, 3000, 0, 60)
-    ev_3.generate_ev_data(100)
+    ev_3.generate_ev_data(1000)
     # linear_reg(ev_3.file_path, ("weight", "distance"))
     # multinomial_reg(ev_3.file_path, ("soc", "battery_health", "distance"))
     multivariate_mul_regression(ev_3.file_path, ev_3.attribute)
