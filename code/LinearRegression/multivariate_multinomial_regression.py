@@ -4,8 +4,10 @@ from sklearn import preprocessing as sp
 from sklearn import pipeline as pl
 from sklearn import linear_model as lm
 from sklearn import metrics as sm
+from sklearn.model_selection import GridSearchCV
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def multivariate_mul_regression(data_path, effect_data_path, attr):
@@ -23,18 +25,29 @@ def multivariate_mul_regression(data_path, effect_data_path, attr):
 
 
     model = pl.make_pipeline(
-        sp.PolynomialFeatures(8),
+        sp.PolynomialFeatures(3),
         lm.LinearRegression()
-        # lm.Ridge(10, fit_intercept=True, max_iter=1000)
     )
 
-    model.fit(x_train, y_train)
-    z_predictions = model.predict(x_test)
+    param_grid = {"polynomialfeatures__degree": np.arange(10),
+                  "linearregression__fit_intercept": [True, False],
+                  "linearregression__normalize": [True, False]}
 
-    print(sm.mean_absolute_error(y_test, z_predictions))
-    print(sm.mean_squared_error(y_test, z_predictions))
-    print(sm.median_absolute_error(y_test, z_predictions))
-    print(sm.r2_score(y_test, z_predictions))
+    grid = GridSearchCV(model, param_grid, cv=7)
+
+    grid.fit(x_train, y_train)
+    print("best param: ")
+    print(grid.best_params_)
+
+    best_model = grid.best_estimator_
+
+    best_model.fit(x_train, y_train)
+    z_predictions = best_model.predict(x_test)
+
+    print("平均绝对误差：", sm.mean_absolute_error(y_test, z_predictions))
+    print("均方误差：", sm.mean_squared_error(y_test, z_predictions))
+    print("绝对中位差：", sm.median_absolute_error(y_test, z_predictions))
+    print("R2_得分：", sm.r2_score(y_test, z_predictions))
 
     with open(effect_data_path, "r") as f:
         effect_data: dict = json.load(f)
