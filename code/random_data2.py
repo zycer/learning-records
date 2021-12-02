@@ -42,17 +42,20 @@ class EV:
         self.temperature = temperature
         self.battery_health = battery_health
         self.standard_distance_index = standard_distance_index
-        self.file_path = f"./data/{self.name}/{self.name}.csv"
-        self.effect_file_path = f"./data/{self.name}/{self.name}.json"
+        self.data_path = f"./data/{self.name}/{self.name}.csv"
+        self.effect_data_path = f"./data/{self.name}/{self.name}.json"
         self.effect_data = dict()
 
         for attr in self.attribute:
             if attr != self.attribute[-1]:
-                self.effect_data[attr] = list()
+                if attr == "soc" or attr == "weight":
+                    self.effect_data[attr] = {"key": (attr, "distance"), "values": []}
+                else:
+                    self.effect_data[attr] = {"key": (attr, "soc"), "values": []}
 
         self.standard_distance = self.ideal_performance
 
-        make_dir(os.path.dirname(self.file_path))
+        make_dir(os.path.dirname(self.data_path))
 
     @property
     def effect_battery_health_soc(self):
@@ -60,9 +63,10 @@ class EV:
         电池健康对SOC的影响
         :return:
         """
-        effect_osc = self.soc * (1 - self.battery_health / 100)
-        self.effect_data["battery_health"].append((round(100 - self.battery_health, 2), round(effect_osc, 2)))
-        return effect_osc
+        effect_osc = self.__disturbance(self.soc * (1 - self.battery_health / 100), 1.6, 0.4)
+        self.effect_data["battery_health"]["values"].append(
+            (round(100 - self.battery_health, 2), self.__disturbance(round(100 - self.battery_health, 2), 1.6, 0.4)))
+        return round(effect_osc, 2)
 
     @property
     def effect_temperature_soc(self):
@@ -70,8 +74,8 @@ class EV:
         温度对电池SOC的影响
         :return: 影响值（百分比）
         """
-        effect_soc = 1.08 ** -self.temperature - 1.5
-        self.effect_data["temperature"].append((round(self.temperature), round(effect_soc)))
+        effect_soc = self.__disturbance(1.08 ** -self.temperature, 3, 0.1)
+        self.effect_data["temperature"]["values"].append((round(self.temperature, 2), round(effect_soc, 2)))
         return effect_soc
 
     @property
@@ -82,7 +86,7 @@ class EV:
         """
         a = 0.02
         b = 1 - (a * self.ev_weight + 50 * a)
-        return a * (self.ev_weight + self.load) + b
+        return self.__disturbance(a * (self.ev_weight + self.load) + b, 3.5, 0.4)
 
     @property
     def ideal_performance(self):
@@ -90,9 +94,9 @@ class EV:
         理想续航里程
         :return:里程数（km）
         """
-        performance = (self.base_number ** self.soc - 1) * self.standard_distance_index
+        performance = self.__disturbance((self.base_number ** self.soc - 1) * self.standard_distance_index, 30, 0.3)
         # 记录SOC对续航里程的影响
-        self.effect_data["soc"].append((round(self.soc, 2), round(performance)))
+        self.effect_data["soc"]["values"].append((round(self.soc, 2), round(performance)))
         return performance
 
     @property
@@ -104,16 +108,16 @@ class EV:
         soc = self.soc - self.effect_temperature_soc - self.effect_battery_health_soc
         self.soc = round(soc, 2) if soc > 0 else 0
         self.soc = self.soc if self.soc <= 100 else 100
-        effect_performance = ((self.base_number ** 100 - 1) * self.standard_distance_index) * (
-                    self.effect_weight_distance / 100)
+        effect_performance = self.__disturbance(((self.base_number ** 100 - 1) * self.standard_distance_index) * (
+                self.effect_weight_distance / 100), 10.5, 0.2)
 
         # 记录EV承重负载对续航里程的影响
-        self.effect_data["weight"].append((round(self.ev_weight + self.load, 2), round(effect_performance, 2)))
+        self.effect_data["weight"]["values"].append((round(self.ev_weight + self.load, 2), round(effect_performance, 2)))
 
         return round(self.ideal_performance - effect_performance, 2)
 
     @classmethod
-    def __disturbance(cls, value, coefficient, rate, noise=0.1, positive=True):
+    def __disturbance(cls, value, rate, noise=0.1, positive=True):
         """
         扰动函数
         :param value: 被扰动值
@@ -126,9 +130,9 @@ class EV:
         ran = random.uniform(0, 1)
         if ran < noise:
             figure = 2
-            value += random.uniform(-figure * coefficient * rate, figure * coefficient * rate)
+            value += random.uniform(-figure * rate, figure * rate)
         else:
-            value += random.uniform(-coefficient * rate, coefficient * rate)
+            value += random.uniform(-rate, rate)
 
         if positive:
             return value if value > 0 else 0
@@ -139,7 +143,7 @@ class EV:
         return round(random.uniform(upper_limit, lower_limit), 2)
 
     def generate_ev_data(self, data_count):
-        with open(self.file_path, "w") as f:
+        with open(self.data_path, "w") as f:
             f.write(','.join(self.attribute) + "\n")
             for i in range(data_count):
                 self.soc = self.random_value(0, 100)
@@ -150,5 +154,5 @@ class EV:
                 f.write("%s,%s,%s,%s,%s\n" % (
                     self.soc, round(self.ev_weight + self.load, 2), self.temperature, self.battery_health, performance))
 
-        with open(self.effect_file_path, "w") as f:
+        with open(self.effect_data_path, "w") as f:
             f.write(json.dumps(self.effect_data))
