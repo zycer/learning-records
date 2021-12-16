@@ -1,6 +1,8 @@
+import copy
 import re
 import time
 
+import pynput
 import pywintypes
 import win32api
 import win32con
@@ -95,8 +97,60 @@ class KeyBoard:
             self.exec_func()
 
 
+class Mouse:
+    def __init__(self):
+        self.x = None
+        self.y = None
+        self.count = 0
+
+    def on_click(self, x, y, button, pressed):
+        if button.name == "left":
+            if not pressed:
+                if (self.x, self.y) != (x, y):
+                    win32api.keybd_event(17, 0, 0, 0)
+                    win32api.keybd_event(67, 0, 0, 0)
+                    win32api.keybd_event(67, 0, win32con.KEYEVENTF_KEYUP, 0)  # 松开按键
+                    win32api.keybd_event(17, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+                    time.sleep(0.1)
+
+                    str_prev = pyperclip.paste()
+                    str_next = re.sub(r"\s{1,2}", " ", str_prev)
+                    new_str = ""
+                    for idx, cha in enumerate(str_next):
+                        if cha == ' ' and idx > 0:
+                            if str_next[idx - 1] == '-':
+                                continue
+                        new_str += cha
+
+                    try:
+                        print("<%s>: %s" % (self.count, new_str))
+                    except Exception as e:
+                        print(e)
+
+                    pyperclip.copy(new_str)
+                    self.count += 1
+
+                    self.send_event()
+
+            else:
+                self.x, self.y = copy.deepcopy((x, y))
+
+    def send_event(self):
+        w.send_key_event()
+
+    def start_listen(self):
+        with pynput.mouse.Listener(
+                on_click=self.on_click) as listener:
+            listener.join()
+
+
+
 if __name__ == "__main__":
     w = WindowMgr("HuaweiTranslateWindow")
 
-    k = KeyBoard('<ctrl>+c', w.send_key_event)
-    k.start_listen()
+    # k = KeyBoard('<ctrl>+c', w.send_key_event)
+    # k.start_listen()
+
+    m = Mouse()
+    m.start_listen()
