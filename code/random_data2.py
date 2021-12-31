@@ -3,8 +3,6 @@ import random
 import os
 import shutil
 
-import numpy as np
-
 
 def make_dir(dir_path):
     try:
@@ -121,7 +119,6 @@ class EV:
         """
         扰动函数
         :param value: 被扰动值
-        :param coefficient: 扰动系数
         :param rate: 扰动幅度
         :param noise: 噪声比
         :param positive: 是否为正
@@ -150,9 +147,10 @@ class EV:
                 self.battery_health = self.random_value(80, 100)
                 self.load = self.random_value(0, 2000)
                 self.temperature = self.random_value(-40, 60)
-                performance = self.comprehensive_performance
+                performance = self.__disturbance(self.comprehensive_performance, rate=0.1)
                 f.write("%s,%s,%s,%s,%s\n" % (
-                    self.soc, round(self.ev_weight + self.load, 2), self.temperature, self.battery_health, performance))
+                    self.soc, round(self.ev_weight + self.load, 2),
+                    self.temperature, self.battery_health, round(performance, 2)))
 
         with open(self.effect_data_path, "w") as f:
             f.write(json.dumps(self.effect_data))
