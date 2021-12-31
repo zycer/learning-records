@@ -4,7 +4,6 @@ from sklearn import preprocessing as sp
 from sklearn import pipeline as pl
 from sklearn import linear_model as lm
 from sklearn import metrics as sm
-import pickle
 from sklearn.model_selection import GridSearchCV
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -68,6 +67,11 @@ def multivariate_mul_regression(data_path, effect_data_path, attr):
     print("均方误差：", sm.mean_squared_error(y_test, z_predictions))
     print("绝对中位差：", sm.median_absolute_error(y_test, z_predictions))
     print("R2_得分：", sm.r2_score(y_test, z_predictions))
+    print()
+
+    # error_map = zip(z_predictions, y_test)
+    # for i in error_map:
+    #     print(i)
 
     with open(effect_data_path, "r") as f:
         effect_data: dict = json.load(f)
