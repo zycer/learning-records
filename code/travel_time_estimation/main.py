@@ -1,4 +1,58 @@
 import numpy as np
+from get_data import GPSData
+
+
+class Vertex:
+    def __init__(self, idx):
+        self.idx = idx
+        self.come = 0
+        self.out = 0
+
+
+class RoadSegment:
+    def __init__(self, idx, fro, to, name, speed_limit, road_nodes):
+        self.idx = idx
+        self.name = name
+        self.speed_limit = speed_limit
+        self.road_nodes = road_nodes
+        self.fro = fro
+        self.to = to
+
+
+class RoadNetworkGraph:
+    def __init__(self):
+        self.vertex = {}
+        self.road_segment = []
+
+
+def create_graph(matrix):
+    rng = RoadNetworkGraph()
+
+    for edge in matrix:
+        idx = edge[0]
+        fro = edge[2]
+        to = edge[3]
+        name = edge[11]
+
+        if fro not in rng.vertex:
+            rng.vertex[fro] = Vertex(fro)
+        if to not in rng.vertex:
+            rng.vertex[to] = Vertex(to)
+
+        from_vertex = rng.vertex[fro]
+        to_vertex = rng.vertex[to]
+
+        from_vertex.out += 1
+        to_vertex.come += 1
+
+        rng.road_segment.append(
+            RoadSegment(idx, fro, to, name, None, None)
+        )
+
+    return rng
+
+
+
 
 
 # 位置和道路分析
