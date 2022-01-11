@@ -2,6 +2,7 @@ import numpy as np
 from get_data import GPSData
 from kd_tree import KNN
 import math
+import os
 
 
 class Vertex:
@@ -24,29 +25,40 @@ class RoadSegment:
 class RoadNetworkGraph:
     def __init__(self):
         self.vertex = {}
-        self.road_segment = []
+        self.road_segment = {}
+        self.adjacency_matrix = []
 
     def create_graph(self, matrix):
-        for edge in matrix:
-            idx = edge[0]
-            fro = edge[2]
-            to = edge[3]
-            name = edge[11]
-
+        for segment in matrix:
+            _, fro, to, _ = segment
             if fro not in self.vertex:
                 self.vertex[fro] = Vertex(fro)
             if to not in self.vertex:
                 self.vertex[to] = Vertex(to)
 
-            from_vertex = self.vertex[fro]
-            to_vertex = self.vertex[to]
+            self.vertex[fro].out += 1
+            self.vertex[to].out += 1
 
-            from_vertex.out += 1
-            to_vertex.come += 1
+        for i in range(len(self.vertex)):
+            self.adjacency_matrix.append([])
+            for j in range(len(self.vertex)):
+                self.adjacency_matrix[i].append(-1)
 
-            self.road_segment.append(
-                RoadSegment(idx, fro, to, name, None, None)
-            )
+        for segment in matrix:
+            idx, fro, to, name = segment
+            self.road_segment[idx] = RoadSegment(idx, fro, to, name, None, None)
+            self.adjacency_matrix[fro - 1][to - 1] = self.road_segment[idx]
+
+    def show_graph_data(self):
+        for key, vertex in self.vertex.items():
+            print(f"{key}: {vertex.come}, {vertex.out}")
+        print()
+        for key, segment in self.road_segment.items():
+            print(f"{key}: {segment.name}")
+
+    def shortest_path(self):
+        # todo A*启发式算法寻找最短路径
+        pass
 
     def shortest_path_length(self):
         """
@@ -83,6 +95,39 @@ class RoadNetworkGraph:
         :return:
         """
         return self.road_segment[self.road_gps_point_located(gps_point)].speed_limit
+
+
+class RoadNetworkData:
+    def __init__(self):
+        self.file_path = "data/road_graph"
+        self.data_files = os.listdir(self.file_path)
+        self.road_graph = RoadNetworkGraph()
+
+    def load_road_data(self):
+        """
+        加载文件中的路网信息，并建立路网图
+        """
+        matrix = []
+        for file in self.data_files:
+            try:
+                with open(os.path.join(self.file_path, file), encoding="utf-8") as f:
+                    road_data = f.readlines()
+            except Exception as e:
+                print(e)
+                road_data = None
+
+            assert road_data
+            road_data = road_data[1:]
+
+            for segment in road_data:
+                segment_attr = segment.split(",")
+                segment_id = int(segment_attr[0])
+                from_vertex = int(segment_attr[2])
+                to_vertex = int(segment_attr[3])
+                segment_name = segment_attr[11]
+                matrix.append([segment_id, from_vertex, to_vertex, segment_name])
+
+        self.road_graph.create_graph(matrix)
 
 
 class AIVMM:
@@ -193,8 +238,9 @@ class AIVMM:
         return sa * ta * rlf
 
     # 相互影响分析
-    
 
 
 if __name__ == "__main__":
-    pass
+    road_network = RoadNetworkData()
+    road_network.load_road_data()
+    road_network.road_graph.show_graph_data()
