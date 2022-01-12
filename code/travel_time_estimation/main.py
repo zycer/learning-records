@@ -224,7 +224,7 @@ class RoadNetworkGraph:
 
     def road_gps_point_located(self, gps_point):
         """
-        GPS点所在的道路
+        GPS点(候选点)所在的道路
         :return: 返回路段的id
         """
         pass
@@ -266,12 +266,12 @@ class AIVMM:
         euclid_distance_ij = self.euclid_distance(candidate_point_i, candidate_point_j)
         return np.exp(-(euclid_distance_ij - self.mu) ** 2 / 2 * (self.sigma ** 2))
 
-    def get_shortest_path_length(self):
+    def get_shortest_path_length(self, start_id, goal_id):
         """
         获取最短路径长度
         :return:
         """
-        return self.road_graph.shortest_path_length()
+        return self.road_graph.shortest_path_length(start_id, goal_id)
 
     def get_average_speed_spl(self):
         """
@@ -352,5 +352,5 @@ if __name__ == "__main__":
     road_graph = RoadNetworkGraph()
     road_graph.load_road_data()
     # road_graph.show_graph_data()
-    # print(road_graph.shortest_path(1, 9))
-    print(road_graph.weighted_speed_limit_spl(1, 9))
+    print(road_graph.shortest_path(1, 4))
+    # print(road_graph.weighted_speed_limit_spl(1, 9))
