@@ -1,36 +1,51 @@
 import numpy as np
-from get_data import GPSData
+# from get_data import GPSData
 from kd_tree import KNN
+from queue import PriorityQueue
 import math
 import os
 
 
 class Vertex:
-    def __init__(self, idx):
+    def __init__(self, idx, latitude=None, longitude=None):
         self.idx = idx
         self.come = 0
         self.out = 0
+        self.latitude = latitude
+        self.longitude = longitude
 
 
 class RoadSegment:
-    def __init__(self, idx, fro, to, name, speed_limit, road_nodes):
+    def __init__(self, idx, fro, to, name, speed_limit, road_nodes, mileage):
         self.idx = idx
-        self.name = name
-        self.speed_limit = speed_limit
-        self.road_nodes = road_nodes
         self.fro = fro
         self.to = to
+        self.name = name
+        self.mileage = mileage
+        self.speed_limit = speed_limit
+        self.road_nodes = road_nodes
 
 
 class RoadNetworkGraph:
     def __init__(self):
+        self.matrix = []
         self.vertex = {}
         self.road_segment = {}
+        self.adjacency_table = {}
         self.adjacency_matrix = []
+        self.file_path = "data/road_graph"
+        self.data_files = os.listdir(self.file_path)
 
-    def create_graph(self, matrix):
-        for segment in matrix:
-            _, fro, to, _ = segment
+    def save_road_network_data(self):
+        """
+        保存路网中的节点与边到成员变量中
+        :return:
+        """
+        self.vertex.clear()
+        self.road_segment.clear()
+
+        for segment in self.matrix:
+            idx, fro, to, name = segment
             if fro not in self.vertex:
                 self.vertex[fro] = Vertex(fro)
             if to not in self.vertex:
@@ -39,15 +54,85 @@ class RoadNetworkGraph:
             self.vertex[fro].out += 1
             self.vertex[to].out += 1
 
+            self.road_segment[idx] = RoadSegment(idx, fro, to, name, None, None, 0)
+
+    def create_graph_adjacency_table(self):
+        """
+        邻接表存储图结构
+        {from_vertex_id: {to_vertex_id: segment_object, to_vertex_id: segment_object}
+        from_vertex_id: {to_vertex_id: segment_object, to_vertex_id: segment_object}...
+        }
+        :return:
+        """
+        self.save_road_network_data()
+        for segment in self.road_segment.values():
+            from_vertex = segment.fro
+            to_vertex = segment.to
+            if from_vertex not in self.adjacency_table.keys():
+                self.adjacency_table[from_vertex] = {}
+
+            self.adjacency_table[from_vertex].update(
+                {to_vertex: segment}
+            )
+
+    def create_graph_adjacency_matrix(self):
+        """
+        邻接矩阵存储图结构
+        :return:
+        """
+        self.save_road_network_data()
         for i in range(len(self.vertex)):
             self.adjacency_matrix.append([])
             for j in range(len(self.vertex)):
                 self.adjacency_matrix[i].append(-1)
 
-        for segment in matrix:
-            idx, fro, to, name = segment
-            self.road_segment[idx] = RoadSegment(idx, fro, to, name, None, None)
-            self.adjacency_matrix[fro - 1][to - 1] = self.road_segment[idx]
+        for segment in self.road_segment.values():
+            self.adjacency_matrix[segment.fro - 1][segment.to - 1] = segment
+
+    def load_road_data(self):
+        """
+        加载文件中的路网信息，并建立路网图
+        """
+
+        for file in self.data_files:
+            try:
+                with open(os.path.join(self.file_path, file), encoding="utf-8") as f:
+                    road_data = f.readlines()
+            except Exception as e:
+                print(e)
+                road_data = None
+
+            assert road_data
+            road_data = road_data[1:]
+
+            for segment in road_data:
+                segment_attr = segment.split(",")
+                segment_id = int(segment_attr[0])
+                from_vertex = int(segment_attr[2])
+                to_vertex = int(segment_attr[3])
+                segment_name = segment_attr[11]
+                self.matrix.append([segment_id, from_vertex, to_vertex, segment_name])
+
+        # self.create_graph_adjacency_matrix()
+        self.create_graph_adjacency_table()
+
+    def neighbors(self, vertex_id):
+        """
+        获取节点邻居
+        :param vertex_id: 节点id
+        :return: 节点所有邻居
+        """
+        return self.adjacency_table[vertex_id].keys()
+
+    def heuristic(self, from_vertex_id, to_vertex_id):
+        """
+        使用欧氏距离计算两点之间的启发式预估代价
+        :param from_vertex_id: 起点节点id
+        :param to_vertex_id: 终点节点id
+        :return: 两点的预估代价
+        """
+        return math.hypot(self.vertex[from_vertex_id].latitude - self.vertex[to_vertex_id].latitude,
+                          self.vertex[from_vertex_id].longitude - self.vertex[to_vertex_id].longitude)
 
     def show_graph_data(self):
         for key, vertex in self.vertex.items():
@@ -56,9 +141,45 @@ class RoadNetworkGraph:
         for key, segment in self.road_segment.items():
             print(f"{key}: {segment.name}")
 
-    def shortest_path(self):
-        # todo A*启发式算法寻找最短路径
-        pass
+        for key, value in self.adjacency_table.items():
+            print(f"{key}: {value}")
+
+    def shortest_path(self, start_id, goal_id):
+        """
+        启发式查找两点之间的最短路径
+        :param start_id:
+        :param goal_id:
+        :return:
+        """
+        class TempPriority:
+            def __init__(self, vertex_id, cost):
+                self.vertex_id = vertex_id
+                self.priority = cost
+
+            def __lt__(self, other):
+                return self.priority < other.priority
+
+        frontier = PriorityQueue()
+        frontier.put(TempPriority(start_id, 0))
+        came_from = dict()
+        cost_so_far = dict()
+        came_from[start_id] = None
+        cost_so_far[start_id] = 0
+
+        while not frontier.empty():
+            current = frontier.get()
+
+            if current.vertex_id == goal_id:
+                break
+
+            for next_vertex_id in self.neighbors(current.vertex_id):
+                new_cost = cost_so_far[current.vertex_id] + \
+                           self.adjacency_table[current.vertex_id][next_vertex_id].mileage
+                if next_vertex_id not in cost_so_far or new_cost < cost_so_far[next_vertex_id]:
+                    cost_so_far[next_vertex_id] = new_cost
+                    priority = new_cost + self.heuristic(current.vertex_id, next_vertex_id)
+                    frontier.put(TempPriority(next_vertex_id, property))
+                    came_from[next_vertex_id] = current.vertex_id
 
     def shortest_path_length(self):
         """
@@ -97,42 +218,9 @@ class RoadNetworkGraph:
         return self.road_segment[self.road_gps_point_located(gps_point)].speed_limit
 
 
-class RoadNetworkData:
-    def __init__(self):
-        self.file_path = "data/road_graph"
-        self.data_files = os.listdir(self.file_path)
-        self.road_graph = RoadNetworkGraph()
-
-    def load_road_data(self):
-        """
-        加载文件中的路网信息，并建立路网图
-        """
-        matrix = []
-        for file in self.data_files:
-            try:
-                with open(os.path.join(self.file_path, file), encoding="utf-8") as f:
-                    road_data = f.readlines()
-            except Exception as e:
-                print(e)
-                road_data = None
-
-            assert road_data
-            road_data = road_data[1:]
-
-            for segment in road_data:
-                segment_attr = segment.split(",")
-                segment_id = int(segment_attr[0])
-                from_vertex = int(segment_attr[2])
-                to_vertex = int(segment_attr[3])
-                segment_name = segment_attr[11]
-                matrix.append([segment_id, from_vertex, to_vertex, segment_name])
-
-        self.road_graph.create_graph(matrix)
-
-
 class AIVMM:
-    def __init__(self, road_graph: RoadNetworkGraph, mu, sigma):
-        self.road_graph = road_graph
+    def __init__(self, graph: RoadNetworkGraph, mu, sigma):
+        self.road_graph = graph
         self.mu = mu
         self.sigma = sigma
 
@@ -241,6 +329,7 @@ class AIVMM:
 
 
 if __name__ == "__main__":
-    road_network = RoadNetworkData()
-    road_network.load_road_data()
-    road_network.road_graph.show_graph_data()
+    road_graph = RoadNetworkGraph()
+    road_graph.load_road_data()
+    # road_graph.show_graph_data()
+    # road_graph.shortest_path(6, 5)
