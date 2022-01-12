@@ -18,12 +18,13 @@ class Vertex:
 
 
 class RoadSegment:
-    def __init__(self, idx, fro, to, name, speed_limit, road_nodes, mileage):
+    def __init__(self, idx, fro, to, name, speed_limit, road_nodes, mileage, average_speed):
         self.idx = idx
         self.fro = fro
         self.to = to
         self.name = name
         self.mileage = mileage
+        self.average_speed = average_speed
         self.speed_limit = speed_limit
         self.road_nodes = road_nodes
 
@@ -47,7 +48,7 @@ class RoadNetworkGraph:
         self.road_segment.clear()
 
         for segment in self.matrix:
-            idx, fro, to, name, mileage = segment
+            idx, fro, to, name, mileage, average_speed = segment
             if fro not in self.vertex:
                 # 测试使用，随机节点经纬度
                 latitude = uniform(22, 23)
@@ -63,7 +64,7 @@ class RoadNetworkGraph:
             self.vertex[to].out += 1
 
             speed_limit = randint(40, 100)
-            self.road_segment[idx] = RoadSegment(idx, fro, to, name, speed_limit, None, mileage)
+            self.road_segment[idx] = RoadSegment(idx, fro, to, name, speed_limit, None, mileage, average_speed)
 
     def create_graph_adjacency_table(self):
         """
@@ -116,12 +117,13 @@ class RoadNetworkGraph:
 
             for segment in road_data:
                 segment_attr = segment.split(",")
-                segment_id = int(segment_attr[0])
-                from_vertex = int(segment_attr[2])
-                to_vertex = int(segment_attr[3])
-                segment_name = segment_attr[11]
-                mileage = segment_attr[-1]
-                self.matrix.append([segment_id, from_vertex, to_vertex, segment_name, mileage])
+                segment_id = int(segment_attr[0].strip())
+                from_vertex = int(segment_attr[2].strip())
+                to_vertex = int(segment_attr[3].strip())
+                segment_name = segment_attr[11].strip()
+                mileage = float(segment_attr[-2].strip())
+                average_speed = float(segment_attr[-1].strip()) if segment_attr[-1].strip() != '' else -1
+                self.matrix.append([segment_id, from_vertex, to_vertex, segment_name, mileage, average_speed])
 
         # self.create_graph_adjacency_matrix()
         self.create_graph_adjacency_table()
@@ -217,12 +219,22 @@ class RoadNetworkGraph:
         """
         return len(self.shortest_path(start_id, goal_id))
 
-    def average_speed_spl(self):
+    def average_speed_spl(self, start_id, goal_id):
         """
         最短路径上车辆行驶的平均速度
         :return:
         """
-        pass
+        # 最初没有数据，假设车辆平均行驶速度等于限速的平均值
+        average_speed_list = []
+        shortest_path = self.shortest_path(start_id, goal_id)
+        for i in range(len(shortest_path) - 1):
+            segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
+            if segment.average_speed != -1:
+                average_speed_list.append(segment.average_speed)
+            else:
+                average_speed_list.append(segment.speed_limit)
+
+        return sum(average_speed_list) / len(average_speed_list)
 
     def weighted_speed_limit_spl(self, start_id, goal_id):
         """
@@ -367,5 +379,6 @@ if __name__ == "__main__":
     road_graph = RoadNetworkGraph()
     road_graph.load_road_data()
     road_graph.show_adjacency_table()
-    print(road_graph.shortest_path(1, 100))
-    # print(road_graph.weighted_speed_limit_spl(1, 9))
+    print(road_graph.shortest_path(1, 5))
+    print(road_graph.average_speed_spl(1, 5))
+    print(road_graph.weighted_speed_limit_spl(1, 5))

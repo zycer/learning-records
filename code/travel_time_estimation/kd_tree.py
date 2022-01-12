@@ -3,6 +3,7 @@ from scipy import spatial
 from operator import itemgetter
 import itertools
 import numpy as np
+import random
 
 
 class KNN:
@@ -50,8 +51,12 @@ class KNN:
 
 if __name__ == "__main__":
     points = [[7, 5], [10, 8]]
-    lines = [[[0, 5], [3, 0.8]], [[4.5, 1.2], [9, 4.5]], [[11, 5.6], [4.8, 10.5]], [[18, 9], [20, 15]],
-             [[12, 3.1], [17, 5.5]], [[13, 7.8], [15.5, 16]]]
+    # lines = [[[0, 5], [3, 0.8]], [[4.5, 1.2], [9, 4.5]], [[11, 5.6], [4.8, 10.5]], [[18, 9], [20, 15]],
+    #          [[12, 3.1], [17, 5.5]], [[13, 7.8], [15.5, 16]]]
+    lines = []
+    for i in range(10):
+        lines.append([[random.uniform(0, 140), random.uniform(0, 40)], [random.uniform(0, 140), random.uniform(0, 40)]])
+    print("数据生成结束")
     knn = KNN(points, lines)
     knn.matched_segments()
     knn.plot_result()
