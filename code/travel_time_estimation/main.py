@@ -144,6 +144,10 @@ class RoadNetworkGraph:
         return math.hypot(self.vertex[from_vertex_id].latitude - self.vertex[to_vertex_id].latitude,
                           self.vertex[from_vertex_id].longitude - self.vertex[to_vertex_id].longitude)
 
+    def show_adjacency_table(self):
+        for key, value in self.adjacency_table.items():
+            print(key, value)
+
     def show_graph_data(self):
         for key, vertex in self.vertex.items():
             print(f"{key}: {vertex.latitude}, {vertex.longitude}")
@@ -184,14 +188,20 @@ class RoadNetworkGraph:
             if current.vertex_id == goal_id:
                 break
 
-            for next_vertex_id in self.neighbors(current.vertex_id):
-                new_cost = cost_so_far[current.vertex_id] + \
-                           float(self.adjacency_table[current.vertex_id][next_vertex_id].mileage)
+            neighbors = self.neighbors(current.vertex_id)
+            for next_vertex_id in neighbors:
+                if next_vertex_id == goal_id:
+                    new_cost = 0
+                else:
+                    new_cost = cost_so_far[current.vertex_id] + \
+                               float(self.adjacency_table[current.vertex_id][next_vertex_id].mileage)
                 if next_vertex_id not in cost_so_far or new_cost < cost_so_far[next_vertex_id]:
                     cost_so_far[next_vertex_id] = new_cost
                     priority = new_cost + self.heuristic(current.vertex_id, next_vertex_id)
                     frontier.put(TempPriority(next_vertex_id, priority))
                     came_from[next_vertex_id] = current.vertex_id
+                if next_vertex_id == goal_id:
+                    break
 
         return list(came_from.keys())
 
@@ -351,6 +361,6 @@ class AIVMM:
 if __name__ == "__main__":
     road_graph = RoadNetworkGraph()
     road_graph.load_road_data()
-    # road_graph.show_graph_data()
-    print(road_graph.shortest_path(1, 4))
+    road_graph.show_adjacency_table()
+    print(road_graph.shortest_path(1, 100))
     # print(road_graph.weighted_speed_limit_spl(1, 9))
