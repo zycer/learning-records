@@ -167,7 +167,6 @@ class RoadNetworkGraph:
         :param goal_id:
         :return:
         """
-
         class TempPriority:
             def __init__(self, vertex_id, cost):
                 self.vertex_id = vertex_id
@@ -193,7 +192,6 @@ class RoadNetworkGraph:
             try:
                 neighbors = self.neighbors(current.vertex_id)
             except KeyError:
-                neighbors = []
                 return []
 
             for next_vertex_id in neighbors:
