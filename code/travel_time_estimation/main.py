@@ -188,7 +188,12 @@ class RoadNetworkGraph:
             if current.vertex_id == goal_id:
                 break
 
-            neighbors = self.neighbors(current.vertex_id)
+            try:
+                neighbors = self.neighbors(current.vertex_id)
+            except KeyError:
+                neighbors = []
+                return []
+
             for next_vertex_id in neighbors:
                 if next_vertex_id == goal_id:
                     new_cost = 0
