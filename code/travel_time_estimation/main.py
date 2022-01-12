@@ -4,6 +4,8 @@ from kd_tree import KNN
 from queue import PriorityQueue
 import math
 import os
+from random import uniform, randint
+from collections import OrderedDict
 
 
 class Vertex:
@@ -45,16 +47,23 @@ class RoadNetworkGraph:
         self.road_segment.clear()
 
         for segment in self.matrix:
-            idx, fro, to, name = segment
+            idx, fro, to, name, mileage = segment
             if fro not in self.vertex:
-                self.vertex[fro] = Vertex(fro)
+                # 测试使用，随机节点经纬度
+                latitude = uniform(22, 23)
+                longitude = uniform(113, 114)
+                self.vertex[fro] = Vertex(fro, latitude, longitude)
             if to not in self.vertex:
-                self.vertex[to] = Vertex(to)
+                # 测试使用，随机节点经纬度
+                latitude = uniform(22, 23)
+                longitude = uniform(113, 114)
+                self.vertex[to] = Vertex(to, latitude, longitude)
 
             self.vertex[fro].out += 1
             self.vertex[to].out += 1
 
-            self.road_segment[idx] = RoadSegment(idx, fro, to, name, None, None, 0)
+            speed_limit = randint(40, 100)
+            self.road_segment[idx] = RoadSegment(idx, fro, to, name, speed_limit, None, mileage)
 
     def create_graph_adjacency_table(self):
         """
@@ -111,7 +120,8 @@ class RoadNetworkGraph:
                 from_vertex = int(segment_attr[2])
                 to_vertex = int(segment_attr[3])
                 segment_name = segment_attr[11]
-                self.matrix.append([segment_id, from_vertex, to_vertex, segment_name])
+                mileage = segment_attr[-1]
+                self.matrix.append([segment_id, from_vertex, to_vertex, segment_name, mileage])
 
         # self.create_graph_adjacency_matrix()
         self.create_graph_adjacency_table()
@@ -136,13 +146,13 @@ class RoadNetworkGraph:
 
     def show_graph_data(self):
         for key, vertex in self.vertex.items():
-            print(f"{key}: {vertex.come}, {vertex.out}")
+            print(f"{key}: {vertex.latitude}, {vertex.longitude}")
         print()
         for key, segment in self.road_segment.items():
-            print(f"{key}: {segment.name}")
+            print(f"{key}: {segment.name}---{segment.mileage}")
 
-        for key, value in self.adjacency_table.items():
-            print(f"{key}: {value}")
+        # for key, value in self.adjacency_table.items():
+        #     print(f"{key}: {value}")
 
     def shortest_path(self, start_id, goal_id):
         """
@@ -151,6 +161,7 @@ class RoadNetworkGraph:
         :param goal_id:
         :return:
         """
+
         class TempPriority:
             def __init__(self, vertex_id, cost):
                 self.vertex_id = vertex_id
@@ -161,7 +172,8 @@ class RoadNetworkGraph:
 
         frontier = PriorityQueue()
         frontier.put(TempPriority(start_id, 0))
-        came_from = dict()
+
+        came_from = OrderedDict()
         cost_so_far = dict()
         came_from[start_id] = None
         cost_so_far[start_id] = 0
@@ -174,19 +186,21 @@ class RoadNetworkGraph:
 
             for next_vertex_id in self.neighbors(current.vertex_id):
                 new_cost = cost_so_far[current.vertex_id] + \
-                           self.adjacency_table[current.vertex_id][next_vertex_id].mileage
+                           float(self.adjacency_table[current.vertex_id][next_vertex_id].mileage)
                 if next_vertex_id not in cost_so_far or new_cost < cost_so_far[next_vertex_id]:
                     cost_so_far[next_vertex_id] = new_cost
                     priority = new_cost + self.heuristic(current.vertex_id, next_vertex_id)
-                    frontier.put(TempPriority(next_vertex_id, property))
+                    frontier.put(TempPriority(next_vertex_id, priority))
                     came_from[next_vertex_id] = current.vertex_id
 
-    def shortest_path_length(self):
+        return list(came_from.keys())
+
+    def shortest_path_length(self, start_id, goal_id):
         """
         最短路径长度
         :return:
         """
-        pass
+        return len(self.shortest_path(start_id, goal_id))
 
     def average_speed_spl(self):
         """
@@ -195,12 +209,18 @@ class RoadNetworkGraph:
         """
         pass
 
-    def weighted_speed_limit_spl(self):
+    def weighted_speed_limit_spl(self, start_id, goal_id):
         """
         最短路径上车辆的加权速度限制
         :return:
         """
-        pass
+        speed_limit = []
+        shortest_path = self.shortest_path(start_id, goal_id)
+        for i in range(len(shortest_path) - 1):
+            segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
+            speed_limit.append(segment.speed_limit)
+
+        return sum(speed_limit) / len(speed_limit)
 
     def road_gps_point_located(self, gps_point):
         """
@@ -332,4 +352,5 @@ if __name__ == "__main__":
     road_graph = RoadNetworkGraph()
     road_graph.load_road_data()
     # road_graph.show_graph_data()
-    # road_graph.shortest_path(6, 5)
+    # print(road_graph.shortest_path(1, 9))
+    print(road_graph.weighted_speed_limit_spl(1, 9))
