@@ -55,7 +55,7 @@ class KNN:
             result.append(temp)
         print("原始匹配编号：", matched)
         print("匹配路段id：", result)
-        self.plot_result()
+        # self.plot_result()
         return result
 
     def plot_result(self):
@@ -68,10 +68,3 @@ class KNN:
             plt.scatter(self.trajectory[i][0], self.trajectory[i][1])
             plt.legend(loc=0, ncol=2)
             plt.show()
-
-
-if __name__ == "__main__":
-    x = [[1.23, 3.56], [7.56, 8.66]]
-    y = [[4.2, 5.44], [9.99, 6.66]]
-    plt.plot(x, y)
-    plt.show()
