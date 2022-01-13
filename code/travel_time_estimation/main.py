@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 # from get_data import GPSData
 from kd_tree import KNN
@@ -262,6 +264,7 @@ class RoadNetworkGraph:
         :param trajectory: GPS轨迹点 [(x1,y1), (x2,y2)...]
         :return:
         """
+        # 轨迹点附近的节点 [[1, 2], [3, 4]...]
         vertex_trajectory_range = []
         for point in trajectory:
             x, y = point
@@ -271,6 +274,7 @@ class RoadNetworkGraph:
                     scope_vertex.append(vertex_id)
             vertex_trajectory_range.append(scope_vertex)
 
+        # 根据轨迹带你附近的节点，查询其出度与入度，并将关联的路段保存[{1:segment_obj, 2: segment_obj}, {...,...},...]
         segment_trajectory_range = []
 
         for vertexes in vertex_trajectory_range:
@@ -286,7 +290,10 @@ class RoadNetworkGraph:
 
             segment_trajectory_range.append(scope_segment)
 
-        KNN(trajectory, segment_trajectory_range)
+        # KNN(trajectory, segment_trajectory_range).matched_segments()
+
+
+
 
     def road_gps_point_located(self, gps_point):
         """
@@ -414,10 +421,30 @@ class AIVMM:
     # 相互影响分析
 
 
+def test_knn():
+    res = []
+    for i in range(2, 4):
+        temp = {}
+        for j in range(4, 7):
+            idx = j if i == 2 else j * i
+            road_nodes = []
+            for k in range(2):
+                road_nodes.append([random.uniform(100, 200), random.uniform(20, 60)])
+            segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
+            temp[idx] = segment
+
+        res.append(temp)
+    print(res)
+
+    print(KNN([[77, 60], [113, 23]], res).matched_segments())
+
+
 if __name__ == "__main__":
-    road_graph = RoadNetworkGraph()
-    road_graph.load_road_data()
-    road_graph.show_adjacency_table()
-    print(road_graph.shortest_path(1, 5))
-    print(road_graph.average_speed_spl(1, 5))
-    print(road_graph.weighted_speed_limit_spl(1, 5))
+    test_knn()
+    # road_graph = RoadNetworkGraph()
+    # road_graph.load_road_data()
+    # road_graph.show_adjacency_table()
+    # print(road_graph.shortest_path(1, 5))
+    # print(road_graph.average_speed_spl(1, 5))
+    # print(road_graph.weighted_speed_limit_spl(1, 5))
+
