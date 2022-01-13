@@ -35,6 +35,7 @@ class RoadNetworkGraph:
         self.vertex = {}
         self.road_segment = {}
         self.adjacency_table = {}
+        self.inverse_adjacency_table = {}
         self.adjacency_matrix = []
         self.file_path = "data/road_graph"
         self.data_files = os.listdir(self.file_path)
@@ -79,10 +80,17 @@ class RoadNetworkGraph:
             from_vertex = segment.fro
             to_vertex = segment.to
             if from_vertex not in self.adjacency_table.keys():
-                self.adjacency_table[from_vertex] = {}
+                self.adjacency_table[from_vertex] = dict()
+
+            if to_vertex not in self.inverse_adjacency_table.keys():
+                self.inverse_adjacency_table[to_vertex] = dict()
 
             self.adjacency_table[from_vertex].update(
                 {to_vertex: segment}
+            )
+
+            self.inverse_adjacency_table[to_vertex].update(
+                {from_vertex: segment}
             )
 
     def create_graph_adjacency_matrix(self):
@@ -167,6 +175,7 @@ class RoadNetworkGraph:
         :param goal_id:
         :return:
         """
+
         class TempPriority:
             def __init__(self, vertex_id, cost):
                 self.vertex_id = vertex_id
@@ -246,6 +255,38 @@ class RoadNetworkGraph:
             speed_limit.append(segment.speed_limit)
 
         return sum(speed_limit) / len(speed_limit)
+
+    def k_nearest_neighbors(self, trajectory: list):
+        """
+        返回k个距离gps轨迹点最近的路段
+        :param trajectory: GPS轨迹点 [(x1,y1), (x2,y2)...]
+        :return:
+        """
+        vertex_trajectory_range = []
+        for point in trajectory:
+            x, y = point
+            scope_vertex = []
+            for vertex_id, vertex in self.vertex.items():
+                if math.hypot(x - vertex.longitude, y - vertex.latitude) < 0.01:
+                    scope_vertex.append(vertex_id)
+            vertex_trajectory_range.append(scope_vertex)
+
+        segment_trajectory_range = []
+
+        for vertexes in vertex_trajectory_range:
+            scope_segment = {}
+            for vertex_id in vertexes:
+                for segment in self.adjacency_table[vertex_id].values():
+                    if segment.idx not in scope_segment.keys():
+                        scope_segment[segment.idx] = segment
+
+                for segment in self.inverse_adjacency_table[vertex_id].values():
+                    if segment.idx not in scope_segment.keys():
+                        scope_segment[segment.idx] = segment
+
+            segment_trajectory_range.append(scope_segment)
+
+        KNN(trajectory, segment_trajectory_range)
 
     def road_gps_point_located(self, gps_point):
         """
