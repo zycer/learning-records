@@ -428,15 +428,14 @@ def test_knn():
         for j in range(4, 7):
             idx = j if i == 2 else j * i
             road_nodes = []
-            for k in range(2):
+            for k in range(20):
                 road_nodes.append([random.uniform(100, 200), random.uniform(20, 60)])
             segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
             temp[idx] = segment
 
         res.append(temp)
-    print(res)
 
-    print(KNN([[77, 60], [113, 23]], res).matched_segments())
+    KNN([[77, 60], [113, 23]], res).matched_segments()
 
 
 if __name__ == "__main__":
