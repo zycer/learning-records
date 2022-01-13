@@ -290,10 +290,7 @@ class RoadNetworkGraph:
 
             segment_trajectory_range.append(scope_segment)
 
-        # KNN(trajectory, segment_trajectory_range).matched_segments()
-
-
-
+        KNN(trajectory, segment_trajectory_range).matched_segments()
 
     def road_gps_point_located(self, gps_point):
         """
@@ -346,19 +343,19 @@ class AIVMM:
         """
         return self.road_graph.shortest_path_length(start_id, goal_id)
 
-    def get_average_speed_spl(self):
+    def get_average_speed_spl(self, start_id, goal_id):
         """
         获取最短路径上车辆行驶的平均速度
         :return:
         """
-        return self.road_graph.average_speed_spl()
+        return self.road_graph.average_speed_spl(start_id, goal_id)
 
-    def get_weighted_speed_limit_spl(self):
+    def get_weighted_speed_limit_spl(self, start_id, goal_id):
         """
         获取最短路径上车辆的加权速度限制
         :return:
         """
-        return self.road_graph.weighted_speed_limit_spl()
+        return self.road_graph.weighted_speed_limit_spl(start_id, goal_id)
 
     def get_road_speed_limit(self, gps_point):
         """
@@ -375,7 +372,7 @@ class AIVMM:
         param: candidate_point_j: 候选点j
         """
         euclid_distance_ij = self.euclid_distance(candidate_point_i, candidate_point_j)
-        return euclid_distance_ij / self.get_shortest_path_length()
+        return euclid_distance_ij / self.get_shortest_path_length(candidate_point_i, candidate_point_j)
 
     def spatial_analysis(self, candidate_point_i, candidate_point_j):
         """
@@ -393,8 +390,8 @@ class AIVMM:
         param: candidate_point_i: 候选点i
         param: candidate_point_j: 沿着候选点j
         """
-        ass = self.get_average_speed_spl()
-        wsls = self.get_weighted_speed_limit_spl()
+        ass = self.get_average_speed_spl(candidate_point_i, candidate_point_j)
+        wsls = self.get_weighted_speed_limit_spl(candidate_point_i, candidate_point_j)
         return ass / (abs(ass - wsls) + ass)
 
     def road_level_factor(self, candidate_point_i, candidate_point_j):
@@ -428,13 +425,13 @@ def test_knn():
         for j in range(4, 7):
             idx = j if i == 2 else j * i
             road_nodes = []
-            for k in range(20):
+            for k in range(2000):
                 road_nodes.append([random.uniform(100, 200), random.uniform(20, 60)])
             segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
             temp[idx] = segment
 
         res.append(temp)
-
+    print("数据生成完毕")
     KNN([[77, 60], [113, 23]], res).matched_segments()
 
 
@@ -446,4 +443,3 @@ if __name__ == "__main__":
     # print(road_graph.shortest_path(1, 5))
     # print(road_graph.average_speed_spl(1, 5))
     # print(road_graph.weighted_speed_limit_spl(1, 5))
-
