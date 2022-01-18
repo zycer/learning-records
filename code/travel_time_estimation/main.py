@@ -260,7 +260,7 @@ class RoadNetworkGraph:
 
     def k_nearest_neighbors(self, trajectory: list):
         """
-        返回k个距离gps轨迹点最近的路段
+        返回k个距离gps轨迹点最近的路段(KNN算法)
         :param trajectory: GPS轨迹点 [(x1,y1), (x2,y2)...]
         :return:
         """
@@ -420,19 +420,21 @@ class AIVMM:
 
 def test_knn():
     res = []
+    points = []
     for i in range(2, 4):
+        points.append([random.uniform(100, 200), random.uniform(20, 60)])
         temp = {}
         for j in range(4, 7):
             idx = j if i == 2 else j * i
             road_nodes = []
-            for k in range(2000):
+            for k in range(20):
                 road_nodes.append([random.uniform(100, 200), random.uniform(20, 60)])
             segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
             temp[idx] = segment
 
         res.append(temp)
-    print("数据生成完毕")
-    KNN([[77, 60], [113, 23]], res).matched_segments()
+    print("数据生成...")
+    KNN(points, res, 10).matched_segments()
 
 
 if __name__ == "__main__":

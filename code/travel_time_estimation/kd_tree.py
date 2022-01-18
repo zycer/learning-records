@@ -53,9 +53,10 @@ class KNN:
             for line_index in lines:
                 temp.append(self.segment_id_list[num][line_index])
             result.append(temp)
+        print("匹配结果：")
         print("原始匹配编号：", matched)
         print("匹配路段id：", result)
-        # self.plot_result()
+        self.plot_result()
         return result
 
     def plot_result(self):
