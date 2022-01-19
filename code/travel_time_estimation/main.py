@@ -434,7 +434,7 @@ def test_knn():
 
         res.append(temp)
     print("数据生成...")
-    KNN(points, res, 10).matched_segments()
+    KNN(points, res, neighbor_num=4).matched_segments(False)
 
 
 if __name__ == "__main__":
