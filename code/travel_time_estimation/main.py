@@ -1,11 +1,10 @@
+import math
+import os
 import random
-
 import numpy as np
 from get_data import GPSData
 from kd_tree import KNN
 from queue import PriorityQueue
-import math
-import os
 from random import uniform, randint
 from collections import OrderedDict
 
