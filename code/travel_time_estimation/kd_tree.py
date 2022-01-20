@@ -1,4 +1,3 @@
-import math
 import time
 
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ import numpy as np
 
 
 class KNN:
-    def __init__(self, trajectory, segments, neighbor_num=2):
+    def __init__(self, trajectory, roads, neighbor_num=2):
         """
         param: trajectory: GPS轨迹点列表 [[x1, y1], [x2, y2],...]
         param: segments: GPS轨迹点附近所有路段列表 [{id1: segment_obj1, id2: segment_obj2,...}, {idx: segment_obj,...},...]
@@ -22,10 +21,28 @@ class KNN:
         [[road_id1,road_id1,road_id2,...], [road_id3,...]]
         """
         self.trajectory = trajectory
-        self.segments = segments
+        self.segments = roads
         self.neighbor_num = neighbor_num
         self.segment_lines = []
         self.segment_id_list = []
+        self.r = 6367
+
+    def change_data(self, data):
+        """
+        经纬度坐标转换
+        """
+        phi = np.deg2rad(data[:, 1])  # LAT
+        theta = np.deg2rad(data[:, 0])  # LON
+        data = np.c_[
+            data, self.r * np.cos(phi) * np.cos(theta), self.r * np.cos(phi) * np.sin(theta), self.r * np.sin(phi)]
+        return data
+
+    def dist_to_arc_length(self, chord_length):
+        """
+        弧长转换为球面距离
+        """
+        central_angle = 2 * np.arcsin(chord_length / (2.0 * self.r))
+        return self.r * central_angle
 
     def data_pretreatment(self):
         """
@@ -60,15 +77,16 @@ class KNN:
         for num, segment_line in enumerate(self.segment_lines):
             last_matched = set()
             k = self.neighbor_num
-            lines = np.concatenate(segment_line)
-            tree = spatial.cKDTree(lines)
+            lines = self.change_data(np.concatenate(segment_line))
+            tree = spatial.cKDTree(lines[:, 2:5])
             lines_ix = tuple(itertools.chain.from_iterable(
                 [itertools.repeat(i, road) for i, road in enumerate(list(map(len, segment_line)))]
             ))
 
             while len(segment_line) >= k:
-                distance, roads_idx = tree.query([self.trajectory[num]], k=k)
-
+                trajectory = self.change_data(np.concatenate([[self.trajectory[num]]]))
+                distance, roads_idx = tree.query(trajectory[:, 2:5], k=k)
+                distance = self.dist_to_arc_length(distance)
                 match_set = set()
                 for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
                     temp = [segment[0] for segment in match_set]

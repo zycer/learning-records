@@ -1,7 +1,7 @@
 import random
 
 import numpy as np
-# from get_data import GPSData
+from get_data import GPSData
 from kd_tree import KNN
 from queue import PriorityQueue
 import math
@@ -422,13 +422,13 @@ def test_knn():
     res = []
     points = []
     for i in range(2, 4):
-        points.append([random.uniform(100, 200), random.uniform(20, 60)])
+        points.append([random.uniform(119, 120), random.uniform(40, 41)])
         temp = {}
         for j in range(4, 7):
             idx = j if i == 2 else j * i
             road_nodes = []
-            for k in range(20):
-                road_nodes.append([random.uniform(100, 200), random.uniform(20, 60)])
+            for k in range(30):
+                road_nodes.append([random.uniform(119, 120), random.uniform(40, 41)])
             segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
             temp[idx] = segment
 
