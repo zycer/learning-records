@@ -328,6 +328,13 @@ class AIVMM:
         x2, y2 = point_b
         return math.hypot(x1 - x2, y1 - y2)
 
+    def distance_weight(self, point_a, point_b):
+        """
+        两点之间的距离权重，公式为：exp(dist(pi,pj)^2 / beta^2)
+        """
+        euclid_distance = self.euclid_distance(point_a, point_b)
+        return math.exp(euclid_distance ** 2 / self.beta ** 2)
+
     def gps_observation_probability(self, candidate_point_i, candidate_point_j):
         """
         GPS点的观测概率
@@ -418,13 +425,17 @@ class AIVMM:
 
     # 相互影响分析
     def static_score_matrix(self, candidate_points):
+        """
+        param: candidate_points: 轨迹的候选点
+        静态评分矩阵
+        """
         matrix_list = []
         for i in range(len(candidate_points) - 1):
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    # weight_list.append(self.path_weight(point_j, point_k))
-                    weight_list.append(round(random.random(), 2))
+                    weight_list.append(self.path_weight(point_j, point_k))
+                    # weight_list.append(round(random.random(), 2))
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
             matrix_list.append(matrix)
@@ -438,6 +449,26 @@ class AIVMM:
             score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
 
         return matrix_list, score_matrix[1:, ]
+
+    def distance_weight_matrix(self, trajectory):
+        """
+        轨迹点的距离权重矩阵
+        """
+        weight_matrix = []
+        for i in range(len(trajectory)):
+            omega_ij_list = []
+            for j in range(len(trajectory)):
+                if i != j:
+                    omega_ij = self.distance_weight(trajectory[i], trajectory[j])
+                    omega_ij_list.append(omega_ij)
+
+            omega_i_matrix = np.diag(omega_ij_list)
+            weight_matrix.append(omega_i_matrix)
+
+        for matrix in weight_matrix:
+            print(matrix)
+            print()
+        return weight_matrix
 
 
 def test_knn():
@@ -471,9 +502,13 @@ if __name__ == "__main__":
     # print(aivmm.static_score_matrix(
     #     [[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10]], [[11, 12], [13, 14]]]
     # ))
-    aivmm.static_score_matrix([[[1, 2], [3, 4], [5, 6]],
-                               [[7, 8], [9, 10]],
-                               [[11, 12], [13, 14]],
-                               [[11, 12], [13, 14], [1, 1]],
-                               ])
+    candidate_point = [[[1, 2], [3, 4], [5, 6]],
+                        [[7, 8], [9, 10]],
+                        [[11, 12], [13, 14]],
+                        [[11, 12], [13, 14], [1, 1]],
+                        ]
+    trajectory_list = [[114.98, 40.12], [115.55, 42.22], [116.66, 42.78], [115.88, 46.78], [111.11, 43.33]]
 
+    # aivmm.static_score_matrix(candidate_points)
+
+    aivmm.distance_weight_matrix(trajectory_list)
