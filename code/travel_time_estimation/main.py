@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 import random
@@ -308,9 +309,10 @@ class RoadNetworkGraph:
 
 
 class AIVMM:
-    def __init__(self, graph: RoadNetworkGraph, mu, sigma):
+    def __init__(self, graph: RoadNetworkGraph, mu, sigma, beta):
         self.road_graph = graph
         self.mu = mu
+        self.beta = beta
         self.sigma = sigma
 
     # 位置和道路分析
@@ -415,6 +417,27 @@ class AIVMM:
         return sa * ta * rlf
 
     # 相互影响分析
+    def static_score_matrix(self, candidate_points):
+        matrix_list = []
+        for i in range(len(candidate_points) - 1):
+            weight_list = []
+            for j, point_j in enumerate(candidate_points[i]):
+                for k, point_k in enumerate(candidate_points[i + 1]):
+                    # weight_list.append(self.path_weight(point_j, point_k))
+                    weight_list.append(round(random.random(), 2))
+            matrix = np.matrix(np.array(weight_list).reshape(
+                len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
+            matrix_list.append(matrix)
+
+        score_matrix = np.matrix([])
+        for matrix in matrix_list:
+            little_mat1 = np.matrix(np.zeros([score_matrix.shape[0], matrix.shape[1]]))
+            little_mat2 = np.matrix(np.zeros([matrix.shape[0], score_matrix.shape[1]]))
+            little_mat1[:] = -np.inf
+            little_mat2[:] = -np.inf
+            score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
+
+        return matrix_list, score_matrix[1:, ]
 
 
 def test_knn():
@@ -437,10 +460,20 @@ def test_knn():
 
 
 if __name__ == "__main__":
-    test_knn()
-    # road_graph = RoadNetworkGraph()
+    # test_knn()
+    road_graph = RoadNetworkGraph()
     # road_graph.load_road_data()
     # road_graph.show_adjacency_table()
     # print(road_graph.shortest_path(1, 5))
     # print(road_graph.average_speed_spl(1, 5))
     # print(road_graph.weighted_speed_limit_spl(1, 5))
+    aivmm = AIVMM(road_graph, 0.1, 2, 0.5)
+    # print(aivmm.static_score_matrix(
+    #     [[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10]], [[11, 12], [13, 14]]]
+    # ))
+    aivmm.static_score_matrix([[[1, 2], [3, 4], [5, 6]],
+                               [[7, 8], [9, 10]],
+                               [[11, 12], [13, 14]],
+                               [[11, 12], [13, 14], [1, 1]],
+                               ])
+
