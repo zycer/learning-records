@@ -434,8 +434,8 @@ class AIVMM:
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    weight_list.append(self.path_weight(point_j, point_k))
-                    # weight_list.append(round(random.random(), 2))
+                    # weight_list.append(self.path_weight(point_j, point_k))
+                    weight_list.append(round(random.random(), 2))
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
             matrix_list.append(matrix)
@@ -448,7 +448,10 @@ class AIVMM:
             little_mat2[:] = -np.inf
             score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
 
-        return matrix_list, score_matrix[1:, ]
+        print("静态评分矩阵: ")
+        print(score_matrix[1:, :])
+        print("-------------end-------------")
+        return matrix_list
 
     def distance_weight_matrix(self, trajectory):
         """
@@ -465,10 +468,49 @@ class AIVMM:
             omega_i_matrix = np.diag(omega_ij_list)
             weight_matrix.append(omega_i_matrix)
 
-        for matrix in weight_matrix:
-            print(matrix)
+        print("距离评分矩阵：")
+        for m in weight_matrix:
+            print(m)
             print()
+        print("-------------end-------------")
         return weight_matrix
+
+    def weighted_scoring_matrix(self, trajectory, candidate_points):
+        static_score_matrix = self.static_score_matrix(candidate_points)
+        distance_weight_matrix = self.distance_weight_matrix(trajectory)
+        phi_list = []
+        phi_matrix_list = []
+
+        for i in range(len(trajectory)):
+            phi_i_list = []
+            for j in range(len(trajectory) - 1):
+                if 1 <= j <= i:
+                    phi_ij = distance_weight_matrix[i][j - 1][j - 1] * static_score_matrix[j]
+                else:
+                    phi_ij = distance_weight_matrix[i][j][j] * static_score_matrix[j]
+
+                phi_i_list.append(phi_ij)
+
+            phi_list.append(phi_i_list)
+
+        for phi_i in phi_list:
+            weighted_score_matrix = np.matrix([])
+            for phi_ij in phi_i:
+                little_mat_1 = np.matrix(np.zeros([weighted_score_matrix.shape[0], phi_ij.shape[1]]))
+                little_mat_2 = np.matrix(np.zeros([phi_ij.shape[0], weighted_score_matrix.shape[1]]))
+                little_mat_1[:] = -np.inf
+                little_mat_2[:] = -np.inf
+                weighted_score_matrix = np.bmat([[weighted_score_matrix, little_mat_1], [little_mat_2, phi_ij]])
+            phi_matrix_list.append(weighted_score_matrix[1:, :])
+
+        # 打印结果
+        print("加权评分矩阵：")
+        for matrix in phi_matrix_list:
+            print(np.around(matrix, 2))
+            print()
+        print("-------------end-------------")
+
+        return phi_list
 
 
 def test_knn():
@@ -498,17 +540,19 @@ if __name__ == "__main__":
     # print(road_graph.shortest_path(1, 5))
     # print(road_graph.average_speed_spl(1, 5))
     # print(road_graph.weighted_speed_limit_spl(1, 5))
-    aivmm = AIVMM(road_graph, 0.1, 2, 0.5)
+    aivmm = AIVMM(road_graph, 0.1, 2, 5)
     # print(aivmm.static_score_matrix(
     #     [[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10]], [[11, 12], [13, 14]]]
     # ))
     candidate_point = [[[1, 2], [3, 4], [5, 6]],
-                        [[7, 8], [9, 10]],
-                        [[11, 12], [13, 14]],
-                        [[11, 12], [13, 14], [1, 1]],
-                        ]
-    trajectory_list = [[114.98, 40.12], [115.55, 42.22], [116.66, 42.78], [115.88, 46.78], [111.11, 43.33]]
+                       [[7, 8], [9, 10]],
+                       [[11, 12], [13, 14]],
+                       [[11, 12], [13, 14], [1, 1]],
+                       ]
+    trajectory_list = [[114.98, 40.12], [115.55, 42.22], [116.66, 42.78], [115.88, 46.78]]
 
     # aivmm.static_score_matrix(candidate_points)
 
-    aivmm.distance_weight_matrix(trajectory_list)
+    # aivmm.distance_weight_matrix(trajectory_list)
+
+    aivmm.weighted_scoring_matrix(trajectory_list, candidate_point)
