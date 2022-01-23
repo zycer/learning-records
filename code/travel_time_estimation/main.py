@@ -290,7 +290,7 @@ class RoadNetworkGraph:
 
             segment_trajectory_range.append(scope_segment)
 
-        KNN(trajectory, segment_trajectory_range).matched_segments()
+        return KNN(trajectory, segment_trajectory_range).matched_segments()
 
     def road_gps_point_located(self, gps_point):
         """
@@ -476,6 +476,11 @@ class AIVMM:
         return weight_matrix
 
     def weighted_scoring_matrix(self, trajectory, candidate_points):
+        """
+        param: trajectory: GPS轨迹点
+        param: candidate_points: GPS轨迹点对应的候选点
+        加权得分矩阵
+        """
         static_score_matrix = self.static_score_matrix(candidate_points)
         distance_weight_matrix = self.distance_weight_matrix(trajectory)
         phi_list = []
