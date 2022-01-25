@@ -10,28 +10,80 @@ from random import uniform, randint
 from collections import OrderedDict
 
 
-class Vertex:
-    def __init__(self, idx, latitude=None, longitude=None):
-        self.idx = idx
-        self.come = 0
-        self.out = 0
-        self.latitude = latitude
-        self.longitude = longitude
+class CandidateGraph:
+    class Vertex:
+        def __init__(self, idx):
+            self.idx = idx
+            self.observation_probability = None
 
+    class Edge:
+        def __init__(self, idx, fro, to):
+            self.fro = fro
+            self.to = to
+            self.idx = idx
+            self.excess_probability = None
 
-class RoadSegment:
-    def __init__(self, idx, fro, to, name, speed_limit, road_nodes, mileage, average_speed):
-        self.idx = idx
-        self.fro = fro
-        self.to = to
-        self.name = name
-        self.mileage = mileage
-        self.average_speed = average_speed
-        self.speed_limit = speed_limit
-        self.road_nodes = road_nodes
+    def __init__(self, check_legitimate_path_func, observation_probability_func, excess_probability_func):
+        self.vertex = {}
+        self.edge = {}
+        self.adjacency_table = {}
+        self.check_legitimate_path_func = check_legitimate_path_func
+        self.observation_probability_func = observation_probability_func
+        self.excess_probability_func = excess_probability_func
+
+    def create_graph(self, trajectory, candidate_points):
+        for i in range(len(candidate_points) - 1):
+            for j, point_j in enumerate(candidate_points[i]):
+                self.adjacency_table[f"{i}&{j}"] = {}
+                for k, point_k in enumerate(candidate_points[i + 1]):
+                    if f"{i}&{j}" not in self.vertex:
+                        self.vertex[f"{i}&{j}"] = self.Vertex(f"{i}&{j}")
+                        observation_probability = self.observation_probability_func(point_j, trajectory[i])
+                        self.vertex[f"{i}&{j}"].observation_probability = observation_probability
+
+                    if f"{i + 1}&{k}" not in self.vertex:
+                        self.vertex[f"{i + 1}&{k}"] = self.Vertex(f"{i + 1}&{k}")
+                        observation_probability = self.observation_probability_func(point_k, trajectory[i + 1])
+                        self.vertex[f"{i + 1}&{k}"].observation_probability = observation_probability
+                    if self.check_legitimate_path_func(point_j, point_k):
+                        edge_id = f"{i}&{j}|{i + 1}&{k}"
+                        edge = self.Edge(edge_id, f"{i}&{j}", f"{i + 1}&{k}")
+                        edge.excess_probability = self.excess_probability_func(trajectory[i], trajectory[i + 1],
+                                                                               point_j, point_k)
+                        self.edge[edge_id] = edge
+                        self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
+
+    def show_data(self):
+        for key, value in self.vertex.items():
+            print(key, value.idx, value.observation_probability)
+        print()
+        for key, value in self.edge.items():
+            print(value.idx, value.fro, value.to, value.excess_probability)
+        print()
+        for key, value in self.adjacency_table.items():
+            print(key, value)
 
 
 class RoadNetworkGraph:
+    class Vertex:
+        def __init__(self, idx, latitude=None, longitude=None):
+            self.idx = idx
+            self.come = 0
+            self.out = 0
+            self.latitude = latitude
+            self.longitude = longitude
+
+    class RoadSegment:
+        def __init__(self, idx, fro, to, name, speed_limit, road_nodes, mileage, average_speed):
+            self.idx = idx
+            self.fro = fro
+            self.to = to
+            self.name = name
+            self.mileage = mileage
+            self.average_speed = average_speed
+            self.speed_limit = speed_limit
+            self.road_nodes = road_nodes
+
     def __init__(self):
         self.matrix = []
         self.vertex = {}
@@ -56,18 +108,18 @@ class RoadNetworkGraph:
                 # 测试使用，随机节点经纬度
                 latitude = uniform(22, 23)
                 longitude = uniform(113, 114)
-                self.vertex[fro] = Vertex(fro, latitude, longitude)
+                self.vertex[fro] = self.Vertex(fro, latitude, longitude)
             if to not in self.vertex:
                 # 测试使用，随机节点经纬度
                 latitude = uniform(22, 23)
                 longitude = uniform(113, 114)
-                self.vertex[to] = Vertex(to, latitude, longitude)
+                self.vertex[to] = self.Vertex(to, latitude, longitude)
 
             self.vertex[fro].out += 1
             self.vertex[to].out += 1
 
             speed_limit = randint(40, 100)
-            self.road_segment[idx] = RoadSegment(idx, fro, to, name, speed_limit, None, mileage, average_speed)
+            self.road_segment[idx] = self.RoadSegment(idx, fro, to, name, speed_limit, None, mileage, average_speed)
 
     def create_graph_adjacency_table(self):
         """
@@ -335,14 +387,15 @@ class AIVMM:
         euclid_distance = self.euclid_distance(point_a, point_b)
         return math.exp(euclid_distance ** 2 / self.beta ** 2)
 
-    def gps_observation_probability(self, candidate_point_i, candidate_point_j):
+    def gps_observation_probability(self, candidate_point, sample_point):
         """
         GPS点的观测概率
         param: candidate_point_i: 候选点i
         param: candidate_point_j: 候选点j
         """
-        euclid_distance_ij = self.euclid_distance(candidate_point_i, candidate_point_j)
-        return np.exp(-(euclid_distance_ij - self.mu) ** 2 / 2 * (self.sigma ** 2))
+        euclid_distance_ij = self.euclid_distance(candidate_point, sample_point)
+        return (1 / (math.sqrt(2 * math.pi) * self.sigma)) * math.exp(
+            -((euclid_distance_ij - self.mu) ** 2) / (2 * (self.sigma ** 2)))
 
     def get_shortest_path_length(self, start_id, goal_id):
         """
@@ -373,23 +426,26 @@ class AIVMM:
         """
         return self.road_graph.road_speed_limit(gps_point)
 
-    def excess_probability(self, candidate_point_i, candidate_point_j):
+    def excess_probability(self, sample_point_pre, sample_point_cur, candidate_point_pre, candidate_point_cur):
         """
         过滤概率函数
-        param: candidate_point_i: 候选点i
-        param: candidate_point_j: 候选点j
+        :param sample_point_pre: 当前采样点前一个采样点
+        :param sample_point_cur: 当前采样点
+        :param candidate_point_pre: 前一个采样点的候选点
+        :param candidate_point_cur: 当前采样点的候选点
+        :return: 两个连续候选点之间的最短路径和直路径的相似性(过度概率)
         """
-        euclid_distance_ij = self.euclid_distance(candidate_point_i, candidate_point_j)
-        return euclid_distance_ij / self.get_shortest_path_length(candidate_point_i, candidate_point_j)
+        euclid_distance = self.euclid_distance(sample_point_pre, sample_point_cur)
+        return euclid_distance / self.get_shortest_path_length(candidate_point_pre, candidate_point_cur)
 
-    def spatial_analysis(self, candidate_point_i, candidate_point_j):
+    def spatial_analysis(self, sample_point_pre, sample_point_cur, candidate_point_pre, candidate_point_cur):
         """
         空间分析函数
         param: gop: GPS点的观测概率
         param: ep: 过度概率
         """
-        gop = self.gps_observation_probability(candidate_point_i, candidate_point_j)
-        ep = self.excess_probability(candidate_point_i, candidate_point_j)
+        gop = self.gps_observation_probability(candidate_point_cur, sample_point_cur)
+        ep = self.excess_probability(sample_point_pre, sample_point_cur, candidate_point_pre, candidate_point_cur)
         return gop * ep
 
     def time_analysis(self, candidate_point_i, candidate_point_j):
@@ -412,19 +468,14 @@ class AIVMM:
         segment_j_speed_limits = self.get_road_speed_limit(candidate_point_j)
         return segment_i_speed_limits / ((segment_j_speed_limits - segment_i_speed_limits) + segment_i_speed_limits)
 
-    def path_weight(self, candidate_point_i, candidate_point_j):
-        """
-        param: fs: 空间分析函数
-        param: ft: 时间分析函数
-        param: rlf: 道路水平因子
-        """
-        sa = self.spatial_analysis(candidate_point_i, candidate_point_j)
-        ta = self.time_analysis(candidate_point_i, candidate_point_j)
-        rlf = self.road_level_factor(candidate_point_i, candidate_point_j)
+    def path_weight(self, sample_point_pre, sample_point_cur, candidate_point_pre, candidate_point_cur):
+        sa = self.spatial_analysis(sample_point_pre, sample_point_cur, candidate_point_pre, candidate_point_cur)
+        ta = self.time_analysis(candidate_point_pre, candidate_point_cur)
+        rlf = self.road_level_factor(candidate_point_pre, candidate_point_cur)
         return sa * ta * rlf
 
     # 相互影响分析
-    def static_score_matrix(self, candidate_points):
+    def static_score_matrix(self, trajectory, candidate_points):
         """
         param: candidate_points: 轨迹的候选点
         静态评分矩阵
@@ -434,8 +485,11 @@ class AIVMM:
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    # weight_list.append(self.path_weight(point_j, point_k))
-                    weight_list.append(round(random.random(), 2))
+                    if i > 0:
+                        weight_list.append(self.path_weight(trajectory[i - 1], trajectory[i], point_j, point_k))
+                    else:
+                        weight_list.append(self.path_weight(trajectory[1], trajectory[i], point_j, point_k))
+                    # weight_list.append(round(random.random(), 2))
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
             matrix_list.append(matrix)
@@ -514,27 +568,75 @@ class AIVMM:
             print(np.around(matrix, 2))
             print()
         print("-------------end-------------")
+        return distance_weight_matrix, phi_list
 
-        return phi_list
+    def check_legitimate_path(self, point_a, point_b):
+        # todo 判断两个候选点是否能够到达
+        result = True
+        return result
+
+    def candidate_graph(self, trajectory, candidate_points):
+        """
+        根据候选点生成候选图（邻接表）
+        :param candidate_points: 候选点列表
+        :return: 候选图 {"0&0" {'1&0': 0.81, '1&1': 0.01,...},...}
+        """
+        candidate_graph = OrderedDict()
+        for i in range(len(candidate_points) - 1):
+            for j, point_j in enumerate(candidate_points[i]):
+                candidate_graph[f"{i}&{j}"] = []
+                for k, point_k in enumerate(candidate_points[i + 1]):
+                    if self.check_legitimate_path(point_j, point_k):
+                        candidate_graph[f"{i}&{j}"].append(f"{i + 1}&{k}")
+                        # observation_probability = self.gps_observation_probability(point_j, trajectory[i])
+                        # candidate_graph[f"{i}&{j}"][f"{i + 1}&{k}"] = observation_probability
+
+        return candidate_graph
+
+    def find_local_optimal_path(self, candidate_graph, omega_i, phi_i, a, i, k):
+        f_ik = []
+        pre_ik = []
+
+        for t in range(a):
+            f_ik.append(omega_i[i][1] * candidate_graph[f"{0}&{t}"])
+
+    def find_sequence(self, trajectory, candidate_points):
+        local_optimal_path_sequence = []
+        candidate_graph = self.candidate_graph(candidate_points)
+        distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_points)
+        for i, points in enumerate(candidate_points):
+            phi_i = phi_list[i]
+            for k in range(len(points)):
+                local_optimal_path = self.find_local_optimal_path(candidate_graph, distance_weight_matrix[i], phi_i,
+                                                                  len(points), i, k)
+                local_optimal_path_sequence.append(local_optimal_path)
+
+        return local_optimal_path_sequence
+
+    def create_candidate_graph(self, trajectory, candidate_points):
+        candidate_graph = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
+                                         self.excess_probability)
+        candidate_graph.create_graph(trajectory, candidate_points)
+        candidate_graph.show_data()
 
 
-def test_knn():
-    res = []
-    points = []
-    for i in range(2, 4):
-        points.append([random.uniform(119, 120), random.uniform(40, 41)])
-        temp = {}
-        for j in range(4, 7):
-            idx = j if i == 2 else j * i
-            road_nodes = []
-            for k in range(30):
-                road_nodes.append([random.uniform(119, 120), random.uniform(40, 41)])
-            segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
-            temp[idx] = segment
-
-        res.append(temp)
-    print("数据生成...")
-    KNN(points, res, neighbor_num=4).matched_segments(False)
+# def test_knn():
+#     res = []
+#     points = []
+#     for i in range(2, 4):
+#         points.append([random.uniform(119, 120), random.uniform(40, 41)])
+#         temp = {}
+#         for j in range(4, 7):
+#             idx = j if i == 2 else j * i
+#             road_nodes = []
+#             for k in range(30):
+#                 road_nodes.append([random.uniform(119, 120), random.uniform(40, 41)])
+#             segment = RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
+#             temp[idx] = segment
+#
+#         res.append(temp)
+#     print("数据生成...")
+#     KNN(points, res, neighbor_num=4).matched_segments(False)
 
 
 if __name__ == "__main__":
@@ -545,19 +647,21 @@ if __name__ == "__main__":
     # print(road_graph.shortest_path(1, 5))
     # print(road_graph.average_speed_spl(1, 5))
     # print(road_graph.weighted_speed_limit_spl(1, 5))
-    aivmm = AIVMM(road_graph, 0.1, 2, 5)
+    aivmm = AIVMM(road_graph, 5, 25, 5)
     # print(aivmm.static_score_matrix(
     #     [[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10]], [[11, 12], [13, 14]]]
     # ))
-    candidate_point = [[[1, 2], [3, 4], [5, 6]],
-                       [[7, 8], [9, 10]],
-                       [[11, 12], [13, 14]],
-                       [[11, 12], [13, 14], [1, 1]],
-                       ]
+    candidate_point_list = [[[114.98, 40.12], [3, 4], [5, 6]],
+                            [[7, 8], [9, 10]],
+                            [[11, 12], [13, 14]],
+                            [[11, 12], [13, 14], [1, 1]],
+                            ]
     trajectory_list = [[114.98, 40.12], [115.55, 42.22], [116.66, 42.78], [115.88, 46.78]]
 
     # aivmm.static_score_matrix(candidate_points)
 
     # aivmm.distance_weight_matrix(trajectory_list)
 
-    aivmm.weighted_scoring_matrix(trajectory_list, candidate_point)
+    # aivmm.weighted_scoring_matrix(trajectory_list, candidate_point)
+    # aivmm.candidate_graph(candidate_point_list)
+    aivmm.create_candidate_graph(trajectory_list, candidate_point_list)
