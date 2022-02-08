@@ -71,9 +71,9 @@ class KNN:
         param: is_plot: 是否画图显示
         matched: [{(road_id, distance), (road_id, distance),...}, {(road_id, distance), (road_id, distance),...},...]
         """
-        start_time = time.time()
         matched = []
         self.data_pretreatment()
+        start_time = time.time()
         for num, segment_line in enumerate(self.segment_lines):
             last_matched = set()
             k = self.neighbor_num
@@ -91,6 +91,7 @@ class KNN:
                 for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
                     temp = [segment[0] for segment in match_set]
                     if self.segment_id_list[num][segment_id] not in temp:
+                        # todo 增加候选点
                         match_set.add((self.segment_id_list[num][segment_id], distance[0][index]))
 
                 if len(match_set) == self.neighbor_num:
@@ -109,7 +110,7 @@ class KNN:
 
         if is_plot:
             self.plot_result()
-        return matched
+        return matched, time.time() - start_time
 
     def plot_result(self):
         for i, segment in enumerate(self.segment_lines):
