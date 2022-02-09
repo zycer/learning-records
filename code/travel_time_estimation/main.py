@@ -696,4 +696,3 @@ if __name__ == "__main__":
     trajectory_list = [[113.98, 22.12], [113.78, 22.22], [113.71, 22.09], [113.88, 22.33]]
 
     Main().match_candidate(trajectory_list)
-
