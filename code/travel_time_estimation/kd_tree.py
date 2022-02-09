@@ -44,16 +44,16 @@ class KNN:
                 result.append(calculate(longitude, latitude))
         else:
             longitude, latitude = wgs84
-            result.append(calculate(longitude, latitude))
+            return calculate(longitude, latitude)
 
         return result
 
     @classmethod
     def mercator2wgs84(cls, mercator):
         def calculate(xx, yy):
-            long = float(x) / 20037508.34 * 180
-            lat = float(y) / 20037508.34 * 180
-            lat = 180 / math.pi * (2 * math.atan(math.exp(y * math.pi / 180)) - math.pi / 2)
+            long = float(xx) / 20037508.34 * 180
+            lat = float(yy) / 20037508.34 * 180
+            lat = 180 / math.pi * (2 * math.atan(math.exp(lat * math.pi / 180)) - math.pi / 2)
             return [long, lat]
 
         result = []
@@ -64,7 +64,7 @@ class KNN:
                 result.append(calculate(x, y))
         else:
             x, y = mercator
-            result.append(calculate(x, y))
+            return calculate(x, y)
 
         return result
 
@@ -86,7 +86,7 @@ class KNN:
         def equation(x):
             return k * x + b
 
-        return equation
+        return equation, k, b
 
     def change_data(self, data):
         """
@@ -127,11 +127,35 @@ class KNN:
         self.segment_id_list = segment_id_list
 
     def generate_candidate_point(self, segment, point):
-        segment_mercator = self.wgs842mercator(segment)
         point_mercator = self.wgs842mercator(point)
-        segment_equation = self.generate_equation(**{"points": segment_mercator})
-        vertical_bisector_equation = self.generate_equation(**{"point": point, "k":})
+        segment_mercator = self.wgs842mercator(segment)
+        segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
+        vertical_equation_1, k1, b1 = self.generate_equation(**{"point": segment[0], "k": -k0})
+        vertical_equation_2, k2, b2 = self.generate_equation(**{"point": segment[1], "k": -k0})
 
+        top_equation = vertical_equation_1
+        bottom_equation = vertical_equation_2
+
+        if b1 < b2:
+            top_equation, bottom_equation = bottom_equation, top_equation
+
+        if top_equation(point_mercator[0]) > point_mercator[1] > bottom_equation(point_mercator[0]):
+            vertical_equation_3, k3, b3 = self.generate_equation(**{"point": point, "k": -k0})
+            x = (b3 - b0) / (k0 - k3)
+            y = vertical_equation_3(x)
+
+            candidate_point = self.mercator2wgs84([x, y])
+
+        else:
+            distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
+                                    point_mercator[1] - segment_mercator[0][1])
+
+            distance_2 = math.hypot(point_mercator[0] - segment_mercator[1][0],
+                                    point_mercator[1] - segment_mercator[1][1])
+
+            candidate_point = segment[0] if distance_1 < distance_2 else segment[1]
+
+        return tuple(candidate_point)
 
     def matched_segments(self, is_plot=True):
         """
@@ -160,9 +184,8 @@ class KNN:
                 for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
                     temp = [segment[0] for segment in match_set]
                     if self.segment_id_list[num][segment_id] not in temp:
-                        # todo 增加候选点
-                        self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
-                        match_set.add((self.segment_id_list[num][segment_id], distance[0][index]))
+                        candidate_point = self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
+                        match_set.add((self.segment_id_list[num][segment_id], distance[0][index], candidate_point))
 
                 if len(match_set) == self.neighbor_num:
                     matched.append(match_set)

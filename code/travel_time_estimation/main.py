@@ -32,6 +32,7 @@ class CandidateGraph:
         self.excess_probability_func = excess_probability_func
 
     def create_graph(self, trajectory, candidate_roads, candidate_points):
+        print("++++", candidate_roads)
         for i in range(len(candidate_points) - 1):
             for j, point_j in enumerate(candidate_points[i]):
                 self.adjacency_table[f"{i}&{j}"] = {}
@@ -48,6 +49,7 @@ class CandidateGraph:
                     if self.check_legitimate_path_func(point_j, point_k):
                         edge_id = f"{i}&{j}|{i + 1}&{k}"
                         edge = self.Edge(edge_id, f"{i}&{j}", f"{i + 1}&{k}")
+                        # todo 计算过度概率，传参时传递了列表而非数字
                         edge.excess_probability = self.excess_probability_func(trajectory[i], trajectory[i + 1],
                                                                                candidate_roads[j], candidate_roads[k])
                         self.edge[edge_id] = edge
@@ -452,6 +454,7 @@ class AIVMM:
         :return: 两个连续候选点之间的最短路径和直路径的相似性(过度概率)
         """
         euclid_distance = self.euclid_distance(sample_point_pre, sample_point_cur)
+        print("~~~~", pre_road_id)
         return euclid_distance / self.get_shortest_path_length(
             self.road_graph.vertex[pre_road_id].to, self.road_graph.vertex[cur_road_id].fro)
 
@@ -666,9 +669,14 @@ class Main:
                 distance_temp.append(road_info[1])
                 point_temp.append(road_info[2])
 
-            candidate_distance.append(point_temp)
+            candidate_distance.append(distance_temp)
             candidate_roads.append(road_temp)
             candidate_points.append(point_temp)
+
+            # print(candidate_distance)
+            # print(candidate_roads)
+            # print(candidate_points)
+            # print()
 
         self.aivmm.create_candidate_graph(trajectory, candidate_roads, candidate_points)
 
