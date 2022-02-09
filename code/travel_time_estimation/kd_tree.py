@@ -1,3 +1,4 @@
+import math
 import time
 
 import matplotlib.pyplot as plt
@@ -26,6 +27,66 @@ class KNN:
         self.segment_lines = []
         self.segment_id_list = []
         self.r = 6367
+
+    @classmethod
+    def wgs842mercator(cls, wgs84):
+        def calculate(long, lat):
+            x = float(long) * 20037508.34 / 180
+            y = math.log(math.tan((90 + float(lat)) * math.pi / 360)) / (math.pi / 180)
+            y = y * 20037508.34 / 180
+            return [x, y]
+
+        result = []
+        if wgs84 is None or len(wgs84) == 0:
+            return result
+        elif isinstance(wgs84[0], list):
+            for longitude, latitude in wgs84:
+                result.append(calculate(longitude, latitude))
+        else:
+            longitude, latitude = wgs84
+            result.append(calculate(longitude, latitude))
+
+        return result
+
+    @classmethod
+    def mercator2wgs84(cls, mercator):
+        def calculate(xx, yy):
+            long = float(x) / 20037508.34 * 180
+            lat = float(y) / 20037508.34 * 180
+            lat = 180 / math.pi * (2 * math.atan(math.exp(y * math.pi / 180)) - math.pi / 2)
+            return [long, lat]
+
+        result = []
+        if mercator is None or len(mercator) == 0:
+            return result
+        elif isinstance(mercator[0], list):
+            for x, y in mercator:
+                result.append(calculate(x, y))
+        else:
+            x, y = mercator
+            result.append(calculate(x, y))
+
+        return result
+
+    @classmethod
+    def generate_equation(cls, **kwargs):
+        if "points" in kwargs.keys():
+            first_point, second_point = kwargs["points"]
+            a = second_point[1] - first_point[1]
+            b = first_point[0] - second_point[0]
+            c = second_point[0] * first_point[1] - first_point[0] * second_point[1]
+            k = -1 * a / b
+            b = -1 * c / b
+
+        else:
+            point = kwargs["point"]
+            k = kwargs["k"]
+            b = point[1] - k * point[0]
+
+        def equation(x):
+            return k * x + b
+
+        return equation
 
     def change_data(self, data):
         """
@@ -65,6 +126,13 @@ class KNN:
         self.segment_lines = segment_lines
         self.segment_id_list = segment_id_list
 
+    def generate_candidate_point(self, segment, point):
+        segment_mercator = self.wgs842mercator(segment)
+        point_mercator = self.wgs842mercator(point)
+        segment_equation = self.generate_equation(**{"points": segment_mercator})
+        vertical_bisector_equation = self.generate_equation(**{"point": point, "k":})
+
+
     def matched_segments(self, is_plot=True):
         """
         匹配k个邻居
@@ -74,6 +142,7 @@ class KNN:
         matched = []
         self.data_pretreatment()
         start_time = time.time()
+
         for num, segment_line in enumerate(self.segment_lines):
             last_matched = set()
             k = self.neighbor_num
@@ -92,6 +161,7 @@ class KNN:
                     temp = [segment[0] for segment in match_set]
                     if self.segment_id_list[num][segment_id] not in temp:
                         # todo 增加候选点
+                        self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
                         match_set.add((self.segment_id_list[num][segment_id], distance[0][index]))
 
                 if len(match_set) == self.neighbor_num:
