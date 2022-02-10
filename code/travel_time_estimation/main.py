@@ -31,8 +31,7 @@ class CandidateGraph:
         self.observation_probability_func = observation_probability_func
         self.excess_probability_func = excess_probability_func
 
-    def create_graph(self, trajectory, candidate_roads, candidate_points):
-        print("++++", candidate_roads)
+    def generate_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         for i in range(len(candidate_points) - 1):
             for j, point_j in enumerate(candidate_points[i]):
                 self.adjacency_table[f"{i}&{j}"] = {}
@@ -49,9 +48,9 @@ class CandidateGraph:
                     if self.check_legitimate_path_func(point_j, point_k):
                         edge_id = f"{i}&{j}|{i + 1}&{k}"
                         edge = self.Edge(edge_id, f"{i}&{j}", f"{i + 1}&{k}")
-                        # todo 计算过度概率，传参时传递了列表而非数字
                         edge.excess_probability = self.excess_probability_func(trajectory[i], trajectory[i + 1],
-                                                                               candidate_roads[j], candidate_roads[k])
+                                                                               candidate_roads[i][j],
+                                                                               candidate_roads[i][k])
                         self.edge[edge_id] = edge
                         self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
 
@@ -129,7 +128,8 @@ class RoadNetworkGraph:
             for i in range(random.randint(4, 10)):
                 road_nodes.append([random.uniform(113, 114), random.uniform(22, 23)])
 
-            self.road_segment[idx] = self.RoadSegment(idx, fro, to, name, speed_limit, road_nodes, mileage, average_speed)
+            self.road_segment[idx] = self.RoadSegment(idx, fro, to, name, speed_limit, road_nodes, mileage,
+                                                      average_speed)
 
     def create_graph_adjacency_table(self):
         """
@@ -454,9 +454,8 @@ class AIVMM:
         :return: 两个连续候选点之间的最短路径和直路径的相似性(过度概率)
         """
         euclid_distance = self.euclid_distance(sample_point_pre, sample_point_cur)
-        print("~~~~", pre_road_id)
         return euclid_distance / self.get_shortest_path_length(
-            self.road_graph.vertex[pre_road_id].to, self.road_graph.vertex[cur_road_id].fro)
+            self.road_graph.road_segment[pre_road_id].to, self.road_graph.road_segment[cur_road_id].fro)
 
     def spatial_analysis(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id):
         """
@@ -594,44 +593,79 @@ class AIVMM:
         return distance_weight_matrix, phi_list
 
     def check_legitimate_path(self, point_a, point_b):
-        # todo 判断两个候选点是否能够到达
-        result = True
+        """
+        检查两点之间是否可达
+        :param point_a: 点a
+        :param point_b: 点b
+        :return: 是否可达
+        """
+        result = True if self.get_shortest_path_length(point_a, point_b) else False
         return result
 
-    def candidate_graph(self, trajectory, candidate_points):
+    def find_local_optimal_path(self, candidate_graph, omega_i, phi_i, candi_count, n, i, k):
         """
-        根据候选点生成候选图（邻接表）
-        :param candidate_points: 候选点列表
-        :return: 候选图 {"0&0" {'1&0': 0.81, '1&1': 0.01,...},...}
+        获取局部最优路径
+        :param candidate_graph: 候选图
+        :param omega_i: 距离权重矩阵
+        :param phi_i: 权重评分矩阵
+        :param candi_count: 各个采样点的候选点个数
+        :param n: 采样点个数
+        :param i:
+        :param k:
+        :return: 局部最优路径
         """
-        candidate_graph = OrderedDict()
-        for i in range(len(candidate_points) - 1):
-            for j, point_j in enumerate(candidate_points[i]):
-                candidate_graph[f"{i}&{j}"] = []
-                for k, point_k in enumerate(candidate_points[i + 1]):
-                    if self.check_legitimate_path(point_j, point_k):
-                        candidate_graph[f"{i}&{j}"].append(f"{i + 1}&{k}")
-                        # observation_probability = self.gps_observation_probability(point_j, trajectory[i])
-                        # candidate_graph[f"{i}&{j}"][f"{i + 1}&{k}"] = observation_probability
-
-        return candidate_graph
-
-    def find_local_optimal_path(self, candidate_graph, omega_i, phi_i, a, i, k):
         f_ik = []
         pre_ik = []
 
-        for t in range(a):
-            f_ik.append(omega_i[i][1] * candidate_graph[f"{0}&{t}"])
+        for ii in range(i):
+            f_ik.append([])
+            pre_ik.append([])
+            for kk in range(k):
+                f_ik[ii].append(-np.inf)
+                pre_ik[ii].append(-np.inf)
 
-    def find_sequence(self, trajectory, candidate_roads, candidate_points):
+        for t in range(candi_count[i]):
+            f_ik.append(omega_i[i][0] * candidate_graph[f"{0}&{t}"])
+
+        for s in range(candi_count[i]):
+            if s != k:
+                for t in range(candi_count[i - 1]):
+                    phi_i[i][i][t][s] = -np.inf
+
+        for j in range(1, n):
+            for s in range(candi_count[j]):
+                f_ik[j][s] = max([f_ik[j - 1][t] + phi_i[i][j][t][s] for t in range(candi_count[j - 1])])
+                pre_ik[j][s] = max([f_ik[j - 1][t] + phi_i[i][j][t][s] for t in range(candi_count[j - 1])])
+
+        matched_path = []
+        c_ik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
+        f_value_cik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
+
+        for i in range(1, n).__reversed__():
+            matched_path.append(c_ik)
+            c_ik = pre_ik[c_ik]
+
+        matched_path.append(c_ik)
+        matched_path.reverse()
+        return matched_path
+
+    def find_local_optimal_path_sequence(self, trajectory, candidate_roads, candidate_points):
+        """
+        获取局部最优路径序列（所有点的局部最优路径）
+        :param trajectory: GPS轨迹点
+        :param candidate_roads: 候选点所在的路段id
+        :param candidate_points:    候选点
+        :return: 列表，局部最优路径序列
+        """
         local_optimal_path_sequence = []
-        candidate_graph = self.candidate_graph(trajectory, candidate_points)
+        candi_count = [len(points) for points in candidate_points]
+        candidate_graph = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
             for k in range(len(points)):
                 local_optimal_path = self.find_local_optimal_path(candidate_graph, distance_weight_matrix[i], phi_i,
-                                                                  len(points), i, k)
+                                                                  candi_count, len(trajectory), i, k)
                 local_optimal_path_sequence.append(local_optimal_path)
 
         return local_optimal_path_sequence
@@ -639,9 +673,17 @@ class AIVMM:
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
                                          self.excess_probability)
-        candidate_graph.create_graph(trajectory, candidate_roads, candidate_points)
+        candidate_graph.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
         candidate_graph.show_data()
+        return candidate_graph.adjacency_table
 
+    def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
+        n = len(trajectory)
+        final_path = []
+        lop = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+
+        # for i in range(n):
+        #     for j in
 
 class Main:
     def __init__(self, mu=5, sigma=25, beta=5):
@@ -679,25 +721,6 @@ class Main:
             # print()
 
         self.aivmm.create_candidate_graph(trajectory, candidate_roads, candidate_points)
-
-
-# def test_knn():
-#     res = []
-#     points = []
-#     for i in range(2, 4):
-#         points.append([random.uniform(119, 120), random.uniform(40, 41)])
-#         temp = {}
-#         for j in range(4, 7):
-#             idx = j if i == 2 else j * i
-#             road_nodes = []
-#             for k in range(30):
-#                 road_nodes.append([random.uniform(119, 120), random.uniform(40, 41)])
-#             segment = RoadNetworkGraph().RoadSegment(idx, 0, 0, "xxx", 60, road_nodes, 15, 55)
-#             temp[idx] = segment
-#
-#         res.append(temp)
-#     print("数据生成...")
-#     KNN(points, res, neighbor_num=4).matched_segments(False)
 
 
 if __name__ == "__main__":
