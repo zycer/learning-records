@@ -505,12 +505,14 @@ class AIVMM:
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    if i > 0:
-                        weight_list.append(self.path_weight(trajectory[i - 1], trajectory[i], point_j, point_k,
-                                                            candidate_roads[j], candidate_roads[k]))
-                    else:
-                        weight_list.append(self.path_weight(trajectory[1], trajectory[i], point_j, point_k,
-                                                            candidate_roads[j], candidate_roads[k]))
+                    weight_list.append(self.path_weight(trajectory[i], trajectory[i + 1], point_j, point_k,
+                                                        candidate_roads[i][j], candidate_roads[i+1][k]))
+                    # if i > 0:
+                    #     weight_list.append(self.path_weight(trajectory[i - 1], trajectory[i], point_j, point_k,
+                    #                                         candidate_roads[i][j], candidate_roads[i][k]))
+                    # else:
+                    #     weight_list.append(self.path_weight(trajectory[i], trajectory[i+1], point_j, point_k,
+                    #                                         candidate_roads[i][j], candidate_roads[i][k]))
                     # weight_list.append(round(random.random(), 2))
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
@@ -557,7 +559,7 @@ class AIVMM:
         param: candidate_points: GPS轨迹点对应的候选点
         加权得分矩阵
         """
-        static_score_matrix = self.static_score_matrix(candidate_roads, candidate_points)
+        static_score_matrix = self.static_score_matrix(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix = self.distance_weight_matrix(trajectory)
         phi_list = []
         phi_matrix_list = []
@@ -683,7 +685,7 @@ class AIVMM:
         lop = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
 
         # for i in range(n):
-        #     for j in
+        #     for j in +
 
 class Main:
     def __init__(self, mu=5, sigma=25, beta=5):
@@ -721,6 +723,9 @@ class Main:
             # print()
 
         self.aivmm.create_candidate_graph(trajectory, candidate_roads, candidate_points)
+
+        a = self.aivmm.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        print(a)
 
 
 if __name__ == "__main__":
