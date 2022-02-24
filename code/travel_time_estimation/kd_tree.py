@@ -127,6 +127,9 @@ class KNN:
         self.segment_id_list = segment_id_list
 
     def generate_candidate_point(self, segment, point):
+        """
+        根据采样点确定在此segment中的候选点
+        """
         point_mercator = self.wgs842mercator(point)
         segment_mercator = self.wgs842mercator(segment)
         segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})

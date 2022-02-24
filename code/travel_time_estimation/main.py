@@ -732,10 +732,22 @@ class Main:
         print(a)
 
 
-if __name__ == "__main__":
-    trajectory_list = [[114.1276453768764, 22.5591123454389], [114.1275677854342, 22.5591122346809]]
+def load_trajectory():
+    file_path = "data/gps_trajectory"
+    trajectory = dict()
 
-    Main().match_candidate(trajectory_list)
+    for file in os.listdir(file_path):
+        with open(os.path.join(file_path, file), encoding="utf-8") as f:
+            trajectory[file] = [list(map(float, point.strip().split(",")[1:])) for point in f.readlines()[1:]]
+
+    return trajectory
+
+
+if __name__ == "__main__":
+
+    trajectory_list = load_trajectory()
+    print(trajectory_list.popitem()[1])
+    Main().match_candidate(trajectory_list.popitem()[1])
 
     # a = RoadNetworkGraph()
     # a.load_road_data()
