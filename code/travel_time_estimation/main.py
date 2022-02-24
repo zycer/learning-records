@@ -1,4 +1,5 @@
 import copy
+import json
 import math
 import os
 import random
@@ -67,7 +68,7 @@ class CandidateGraph:
 
 class RoadNetworkGraph:
     class Vertex:
-        def __init__(self, idx, latitude=None, longitude=None):
+        def __init__(self, idx, longitude=None, latitude=None):
             self.idx = idx
             self.come = 0
             self.out = 0
@@ -75,7 +76,7 @@ class RoadNetworkGraph:
             self.longitude = longitude
 
     class RoadSegment:
-        def __init__(self, idx, fro, to, name, speed_limit, road_nodes, mileage, average_speed):
+        def __init__(self, idx, fro, to, name, mileage, speed_limit, average_speed, road_nodes):
             self.idx = idx
             self.fro = fro
             self.to = to
@@ -92,44 +93,28 @@ class RoadNetworkGraph:
         self.adjacency_table = {}
         self.inverse_adjacency_table = {}
         self.adjacency_matrix = []
-        self.file_path = "data/road_graph"
-        self.data_files = os.listdir(self.file_path)
+        self.road_path = "data/road_data"
+        self.vertex_path = "data/vertex_data"
+        self.road_data_files = os.listdir(self.road_path)
+        self.vertex_data_files = os.listdir(self.vertex_path)
 
     def save_road_network_data(self):
         """
         保存路网中的节点与边到成员变量中
         :return:
         """
-        self.vertex.clear()
         self.road_segment.clear()
 
-        for segment in self.matrix:
-            idx, fro, to, name, mileage, average_speed = segment
-            if fro not in self.vertex:
-                # 测试使用，随机节点经纬度
-                latitude = uniform(22, 23)
-                longitude = uniform(113, 114)
-                self.vertex[fro] = self.Vertex(fro, latitude, longitude)
-            if to not in self.vertex:
-                # 测试使用，随机节点经纬度
-                latitude = uniform(22, 23)
-                longitude = uniform(113, 114)
-                self.vertex[to] = self.Vertex(to, latitude, longitude)
+        for road in self.matrix:
+            idx, fro, to, name, mileage, speed_limit, average_speed, road_nodes = road
+            assert fro in self.vertex
+            assert to in self.vertex
 
             self.vertex[fro].out += 1
             self.vertex[to].out += 1
 
-            # 测试使用，随机道路限速
-            speed_limit = randint(40, 100)
-            # todo road_nodes数据
-
-            # 测试使用，随机道路的子道路
-            road_nodes = []
-            for i in range(random.randint(4, 10)):
-                road_nodes.append([random.uniform(113, 114), random.uniform(22, 23)])
-
-            self.road_segment[idx] = self.RoadSegment(idx, fro, to, name, speed_limit, road_nodes, mileage,
-                                                      average_speed)
+            self.road_segment[idx] = self.RoadSegment(idx, fro, to, name, mileage,
+                                                      speed_limit, average_speed, road_nodes)
 
     def create_graph_adjacency_table(self):
         """
@@ -140,6 +125,7 @@ class RoadNetworkGraph:
         :return:
         """
         self.save_road_network_data()
+
         for segment in self.road_segment.values():
             from_vertex = segment.fro
             to_vertex = segment.to
@@ -176,26 +162,43 @@ class RoadNetworkGraph:
         加载文件中的路网信息，并建立路网图
         """
 
-        for file in self.data_files:
+        for vertex_file in self.vertex_data_files:
             try:
-                with open(os.path.join(self.file_path, file), encoding="utf-8") as f:
-                    road_data = f.readlines()
+                with open(os.path.join(self.vertex_path, vertex_file), encoding="utf-8") as f:
+                    vertex_data = f.readlines()[1:]
             except Exception as e:
                 print(e)
-                road_data = None
+                continue
 
-            assert road_data
-            road_data = road_data[1:]
+            for vertex in vertex_data:
+                vertex_attr = vertex.split(",")
+                vertex_id = vertex_attr[0]
+                longitude = float(vertex_attr[1])
+                latitude = float(vertex_attr[2])
+                self.vertex[vertex_id] = self.Vertex(vertex_id, longitude, latitude)
 
-            for segment in road_data:
-                segment_attr = segment.split(",")
-                segment_id = int(segment_attr[0].strip())
-                from_vertex = int(segment_attr[2].strip())
-                to_vertex = int(segment_attr[3].strip())
-                segment_name = segment_attr[11].strip()
-                mileage = float(segment_attr[-2].strip())
-                average_speed = float(segment_attr[-1].strip()) if segment_attr[-1].strip() != '' else -1
-                self.matrix.append([segment_id, from_vertex, to_vertex, segment_name, mileage, average_speed])
+        for file in self.road_data_files:
+            try:
+                with open(os.path.join(self.road_path, file), encoding="utf-8") as f:
+                    road_data = f.readlines()[1:]
+            except Exception as e:
+                print(e)
+                continue
+
+            for road in road_data:
+                road_attr = road.split("|")
+                road_attr_pre = road_attr[0].strip().split(",")
+                road_nodes = json.loads(road_attr[1])
+
+                road_id = road_attr_pre[0].strip()
+                from_vertex = road_attr_pre[1].strip()
+                to_vertex = road_attr_pre[2].strip()
+                segment_name = road_attr_pre[3].strip()
+                mileage = float(road_attr_pre[4].strip())
+                speed_limit = float(road_attr_pre[5])
+                average_speed = float(road_attr_pre[6].strip()) if road_attr_pre[5].strip() != '' else -1
+                self.matrix.append([road_id, from_vertex, to_vertex,
+                                    segment_name, mileage, speed_limit, average_speed, road_nodes])
 
         # self.create_graph_adjacency_matrix()
         self.create_graph_adjacency_table()
@@ -227,7 +230,7 @@ class RoadNetworkGraph:
             print(f"{key}: {vertex.latitude}, {vertex.longitude}")
         print()
         for key, segment in self.road_segment.items():
-            print(f"{key}: {segment.name}---{segment.mileage}")
+            print(f"{key}: {segment.name}---{segment.mileage}----{segment.road_nodes}")
 
         # for key, value in self.adjacency_table.items():
         #     print(f"{key}: {value}")
@@ -506,7 +509,7 @@ class AIVMM:
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
                     weight_list.append(self.path_weight(trajectory[i], trajectory[i + 1], point_j, point_k,
-                                                        candidate_roads[i][j], candidate_roads[i+1][k]))
+                                                        candidate_roads[i][j], candidate_roads[i + 1][k]))
                     # if i > 0:
                     #     weight_list.append(self.path_weight(trajectory[i - 1], trajectory[i], point_j, point_k,
                     #                                         candidate_roads[i][j], candidate_roads[i][k]))
@@ -687,6 +690,7 @@ class AIVMM:
         # for i in range(n):
         #     for j in +
 
+
 class Main:
     def __init__(self, mu=5, sigma=25, beta=5):
         self.mu = mu
@@ -729,6 +733,26 @@ class Main:
 
 
 if __name__ == "__main__":
-    trajectory_list = [[113.98, 22.12], [113.78, 22.22], [113.71, 22.09], [113.88, 22.33]]
+    trajectory_list = [[114.1276453768764, 22.5591123454389], [114.1275677854342, 22.5591122346809]]
 
     Main().match_candidate(trajectory_list)
+
+    # a = RoadNetworkGraph()
+    # a.load_road_data()
+    # a.show_graph_data()
+    # print("~~~~~~~~~~~~")
+    # a.show_adjacency_table()
+
+    #
+    # ff = open("data/road_data/lala.csv", "w", encoding="utf-8")
+    #
+    # with open("data/road_data/new_road_graph.csv", encoding="utf-8") as f:
+    #     data = f.readlines()[1:]
+    #     for d in data:
+    #         d0 = d.split("[")[0]
+    #         d1 = d.split("[")[1][:-2]
+    #         d2 = d1.split(";")
+    #         d3 = [[float(j) for j in i.split(",")] for i in d2]
+    #
+    #         dd = f"{d0}|{d3}\n"
+    #         ff.write(dd)
