@@ -126,30 +126,30 @@ class KNN:
         self.segment_lines = segment_lines
         self.segment_id_list = segment_id_list
 
+    @classmethod
+    def is_mid(cls, point, segment_mercator):
+        segment_iter = zip(segment_mercator[0], segment_mercator[1])
+        for num, segment in enumerate(segment_iter):
+            if sorted(segment)[0] <= point[num] <= sorted(segment)[1]:
+                continue
+            else:
+                return False
+        return True
+
     def generate_candidate_point(self, segment, point):
-        """
-        根据采样点确定在此segment中的候选点
-        """
-        point_mercator = self.wgs842mercator(point)
+        # a = zip(segment[0], segment[1])
+        # plt.plot(next(a), next(a))
+        # plt.scatter([point[0]], [point[1]])
+        # plt.show()
+        print(segment)
+        print(point)
+        point_mercator: list = self.wgs842mercator(point)
         segment_mercator = self.wgs842mercator(segment)
         segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
-        vertical_equation_1, k1, b1 = self.generate_equation(**{"point": segment[0], "k": -k0})
-        vertical_equation_2, k2, b2 = self.generate_equation(**{"point": segment[1], "k": -k0})
-
-        top_equation = vertical_equation_1
-        bottom_equation = vertical_equation_2
-
-        if b1 < b2:
-            top_equation, bottom_equation = bottom_equation, top_equation
-
-        if top_equation(point_mercator[0]) > point_mercator[1] > bottom_equation(point_mercator[0]):
-            vertical_equation_3, k3, b3 = self.generate_equation(**{"point": point, "k": -k0})
-            x = (b3 - b0) / (k0 - k3)
-            y = vertical_equation_3(x)
-
-            candidate_point = self.mercator2wgs84([x, y])
-
-        else:
+        vertical_e, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": -1 / k0})
+        vertical_point = [(b1 - b0) / (k0 - k1), vertical_e((b1 - b0) / (k0 - k1))]
+        print("是否满足:", self.is_mid(vertical_point, segment_mercator))
+        if not self.is_mid(vertical_point, segment_mercator):
             distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
                                     point_mercator[1] - segment_mercator[0][1])
 
@@ -158,6 +158,12 @@ class KNN:
 
             candidate_point = segment[0] if distance_1 < distance_2 else segment[1]
 
+        else:
+            candidate_point = vertical_point
+
+        print(vertical_point[1] == vertical_e(vertical_point[0]))
+        print(self.mercator2wgs84(candidate_point))
+        print()
         return tuple(candidate_point)
 
     def matched_segments(self, is_plot=True):
@@ -218,3 +224,10 @@ class KNN:
             plt.scatter(self.trajectory[i][0], self.trajectory[i][1])
             plt.legend(loc=0, ncol=2)
             plt.show()
+
+
+if __name__ == "__main__":
+    knn = KNN([1, 2], 2)
+    print(knn.generate_candidate_point(
+        [[3.234235433333345345333332, 3.789444444444444], [8.678567123111211114, 6.4564512222221123]],
+        [5.4565634223232323234, 2.56754232323235431234]))
