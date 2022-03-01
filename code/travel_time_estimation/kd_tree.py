@@ -1,5 +1,6 @@
 import math
 import time
+from collections import OrderedDict
 
 import matplotlib.pyplot as plt
 from scipy import spatial
@@ -137,18 +138,11 @@ class KNN:
         return True
 
     def generate_candidate_point(self, segment, point):
-        # a = zip(segment[0], segment[1])
-        # plt.plot(next(a), next(a))
-        # plt.scatter([point[0]], [point[1]])
-        # plt.show()
-        print(segment)
-        print(point)
         point_mercator: list = self.wgs842mercator(point)
         segment_mercator = self.wgs842mercator(segment)
         segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
         vertical_e, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": -1 / k0})
         vertical_point = [(b1 - b0) / (k0 - k1), vertical_e((b1 - b0) / (k0 - k1))]
-        print("是否满足:", self.is_mid(vertical_point, segment_mercator))
         if not self.is_mid(vertical_point, segment_mercator):
             distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
                                     point_mercator[1] - segment_mercator[0][1])
@@ -159,18 +153,15 @@ class KNN:
             candidate_point = segment[0] if distance_1 < distance_2 else segment[1]
 
         else:
-            candidate_point = vertical_point
+            candidate_point = self.mercator2wgs84(vertical_point)
 
-        print(vertical_point[1] == vertical_e(vertical_point[0]))
-        print(self.mercator2wgs84(candidate_point))
-        print()
-        return tuple(candidate_point)
+        return self.is_mid(vertical_point, segment_mercator), tuple(candidate_point)
 
     def matched_segments(self, is_plot=True):
         """
         匹配k个邻居
         param: is_plot: 是否画图显示
-        matched: [{(road_id, distance), (road_id, distance),...}, {(road_id, distance), (road_id, distance),...},...]
+        matched: [{(road_id, distance,[long, lat]), (road_id, distance), [long, lat]...},...},...]
         """
         matched = []
         self.data_pretreatment()
@@ -189,23 +180,31 @@ class KNN:
                 trajectory = self.change_data(np.concatenate([[self.trajectory[num]]]))
                 distance, roads_idx = tree.query(trajectory[:, 2:5], k=k)
                 distance = self.dist_to_arc_length(distance)
-                match_set = set()
+                match_dict = OrderedDict()
                 for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
-                    temp = [segment[0] for segment in match_set]
-                    if self.segment_id_list[num][segment_id] not in temp:
-                        candidate_point = self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
-                        match_set.add((self.segment_id_list[num][segment_id], distance[0][index], candidate_point))
+                    # temp = [segment[0] for segment in match_set]
+                    is_mid, candidate_point = self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
 
-                if len(match_set) == self.neighbor_num:
+                    if self.segment_id_list[num][segment_id] not in match_dict:
+                        match_dict[self.segment_id_list[num][segment_id]] = (distance[0][index], candidate_point)
+                    elif is_mid:
+                        del match_dict[self.segment_id_list[num][segment_id]]
+                        match_dict[self.segment_id_list[num][segment_id]] = (distance[0][index], candidate_point)
+                    else:
+                        pass
+
+                if len(match_dict) == self.neighbor_num:
+                    match_set = [(key, value[0], value[1]) for key, value in match_dict.items()]
                     matched.append(match_set)
                     break
                 else:
                     k += 1
 
-                last_matched = match_set
+                last_matched = match_dict
 
             if k > len(segment_line):
-                matched.append(last_matched)
+                match_set = [(key, value[0], value[1]) for key, value in last_matched.items()]
+                matched.append(match_set)
 
         print("匹配结果：", matched)
         print("匹配用时：", time.time() - start_time)
@@ -224,10 +223,3 @@ class KNN:
             plt.scatter(self.trajectory[i][0], self.trajectory[i][1])
             plt.legend(loc=0, ncol=2)
             plt.show()
-
-
-if __name__ == "__main__":
-    knn = KNN([1, 2], 2)
-    print(knn.generate_candidate_point(
-        [[3.234235433333345345333332, 3.789444444444444], [8.678567123111211114, 6.4564512222221123]],
-        [5.4565634223232323234, 2.56754232323235431234]))
