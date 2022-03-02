@@ -82,7 +82,10 @@ class KNN:
         else:
             point = kwargs["point"]
             k = kwargs["k"]
-            b = point[1] - k * point[0]
+            if k is None:
+                return None
+            else:
+                b = point[1] - k * point[0]
 
         def equation(x):
             return k * x + b
@@ -141,8 +144,12 @@ class KNN:
         point_mercator: list = self.wgs842mercator(point)
         segment_mercator = self.wgs842mercator(segment)
         segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
-        vertical_e, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": -1 / k0})
-        vertical_point = [(b1 - b0) / (k0 - k1), vertical_e((b1 - b0) / (k0 - k1))]
+        if k0:
+            vertical_e, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": -1 / k0 if k0 else None})
+            vertical_point = [(b1 - b0) / (k0 - k1), vertical_e((b1 - b0) / (k0 - k1))]
+        else:
+            vertical_point = [point_mercator[0], segment_equation(point_mercator[0])]
+
         if not self.is_mid(vertical_point, segment_mercator):
             distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
                                     point_mercator[1] - segment_mercator[0][1])
