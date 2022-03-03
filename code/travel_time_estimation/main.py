@@ -324,45 +324,51 @@ class RoadNetworkGraph:
 
         return sum(speed_limit) / len(speed_limit) if len(speed_limit) else 0
 
-    def k_nearest_neighbors(self, trajectory: list):
+    def k_nearest_neighbors(self, trajectory: list, is_search=False):
         """
         返回k个距离gps轨迹点最近的路段(KNN算法)
         :param trajectory: GPS轨迹点 [(x1,y1), (x2,y2)...]
         :return:
         """
         # 轨迹点附近的节点 [[1, 2], [3, 4]...]
-        vertex_trajectory_range = []
-        for point in trajectory:
-            x, y = point
-            scope_vertex = []
-            for vertex_id, vertex in self.vertex.items():
-                if math.hypot(x - vertex.longitude, y - vertex.latitude) < 0.05:
-                    scope_vertex.append(vertex_id)
-            vertex_trajectory_range.append(scope_vertex)
-
-        # 根据轨迹带你附近的节点，查询其出度与入度，并将关联的路段保存[{1:segment_obj, 2: segment_obj}, {...,...},...]
         segment_trajectory_range = []
 
-        for vertexes in vertex_trajectory_range:
-            scope_segment = {}
-            for vertex_id in vertexes:
-                try:
-                    temp = self.adjacency_table[vertex_id]
-                    for segment in temp.values():
-                        if segment.idx not in scope_segment.keys():
-                            scope_segment[segment.idx] = segment
-                except KeyError:
-                    pass
+        if is_search:
+            vertex_trajectory_range = []
+            for point in trajectory:
+                x, y = point
+                scope_vertex = []
+                for vertex_id, vertex in self.vertex.items():
+                    if math.hypot(x - vertex.longitude, y - vertex.latitude) < 0.05:
+                        scope_vertex.append(vertex_id)
+                vertex_trajectory_range.append(scope_vertex)
 
-                try:
-                    temp = self.inverse_adjacency_table[vertex_id]
-                    for segment in temp.values():
-                        if segment.idx not in scope_segment.keys():
-                            scope_segment[segment.idx] = segment
-                except KeyError:
-                    pass
+            # 根据轨迹带你附近的节点，查询其出度与入度，并将关联的路段保存[{1:segment_obj, 2: segment_obj}, {...,...},...]
 
-            segment_trajectory_range.append(scope_segment)
+            for vertexes in vertex_trajectory_range:
+                scope_segment = {}
+                for vertex_id in vertexes:
+                    try:
+                        temp = self.adjacency_table[vertex_id]
+                        for segment in temp.values():
+                            if segment.idx not in scope_segment.keys():
+                                scope_segment[segment.idx] = segment
+                    except KeyError:
+                        pass
+
+                    try:
+                        temp = self.inverse_adjacency_table[vertex_id]
+                        for segment in temp.values():
+                            if segment.idx not in scope_segment.keys():
+                                scope_segment[segment.idx] = segment
+                    except KeyError:
+                        pass
+
+                segment_trajectory_range.append(scope_segment)
+
+        else:
+            for i in range(len(trajectory)):
+                segment_trajectory_range.append(self.road_segment)
 
         return KNN(trajectory, segment_trajectory_range).matched_segments(False)
 
@@ -596,10 +602,10 @@ class AIVMM:
         result = True if self.get_shortest_path_length(point_a, point_b) else False
         return result
 
-    def find_local_optimal_path(self, trajectory, candidate_points, candidate_graph, omega_i, phi_i, candi_count, n, i, k):
+    def find_local_optimal_path(self, trajectory, candidate_points, candidate_graph_obj, omega_i, phi_i, candi_count, n, i, k):
         """
         获取局部最优路径
-        :param candidate_graph: 候选图
+        :param candidate_graph_obj: 候选图
         :param omega_i: 距离权重矩阵
         :param phi_i: 权重评分矩阵
         :param candi_count: 各个采样点的候选点个数
@@ -611,35 +617,55 @@ class AIVMM:
         f_ik = []
         pre_ik = []
 
-        for ii in range(i):
+        print("**********", i, k)
+        print(n)
+
+        for ii in range(n):
             f_ik.append([])
             pre_ik.append([])
-            for kk in range(k):
+            for k in range(candi_count[i]):
                 f_ik[ii].append(-np.inf)
                 pre_ik[ii].append(-np.inf)
 
-        for t in range(candi_count[i]):
-            f_ik.append(omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t]))
+        # for ii in range(i):
+        #     f_ik.append([])
+        #     pre_ik.append([])
+        #     for kk in range(k):
+        #         f_ik[ii].append(-np.inf)
+        #         pre_ik[ii].append(-np.inf)
+
+        print(f_ik)
+        print(pre_ik)
+        print(candidate_graph_obj)
+
+        for t in range(candi_count[0]):
+            f_ik[0][t] = omega_i[i][0] * candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
+            # f_ik[0][t] = omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t])
+            # f_ik.append(omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t]))
+
+        print("phi_i: ", phi_i)
+        print()
 
         for s in range(candi_count[i]):
             if s != k:
                 for t in range(candi_count[i - 1]):
-                    phi_i[i][i][t][s] = -np.inf
+                    phi_i[i][t, s] = -np.inf
 
         for j in range(1, n):
             for s in range(candi_count[j]):
-                f_ik[j][s] = max([f_ik[j - 1][t] + phi_i[i][j][t][s] for t in range(candi_count[j - 1])])
-                pre_ik[j][s] = max([f_ik[j - 1][t] + phi_i[i][j][t][s] for t in range(candi_count[j - 1])])
+                f_ik[j][s] = max([f_ik[j - 1][t] + phi_i[j-1][t, s] for t in range(candi_count[j - 1])])
+                pre_ik[j][s] = max([f_ik[j - 1][t] + phi_i[j-1][t, s] for t in range(candi_count[j - 1])])
 
         matched_path = []
-        c_ik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
+
+        c = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
         f_value_cik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
 
         for i in range(1, n).__reversed__():
-            matched_path.append(c_ik)
-            c_ik = pre_ik[c_ik]
+            matched_path.append(c)
+            c = pre_ik[c]
 
-        matched_path.append(c_ik)
+        matched_path.append(c)
         matched_path.reverse()
         return matched_path
 
@@ -653,23 +679,23 @@ class AIVMM:
         """
         local_optimal_path_sequence = []
         candi_count = [len(points) for points in candidate_points]
-        candidate_graph = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
+        candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
             for k in range(len(points)):
-                local_optimal_path = self.find_local_optimal_path(trajectory, candidate_points, candidate_graph, distance_weight_matrix[i], phi_i,
+                local_optimal_path = self.find_local_optimal_path(trajectory, candidate_points, candidate_graph_obj, distance_weight_matrix[i], phi_i,
                                                                   candi_count, len(trajectory), i, k)
                 local_optimal_path_sequence.append(local_optimal_path)
 
         return local_optimal_path_sequence
 
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
-        candidate_graph = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
+        candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
                                          self.path_weight, self.road_graph.road_segment)
-        candidate_graph.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
-        candidate_graph.show_data()
-        return candidate_graph.adjacency_table
+        candidate_graph_obj.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
+        candidate_graph_obj.show_data()
+        return candidate_graph_obj
 
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
         n = len(trajectory)
