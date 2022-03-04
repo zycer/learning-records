@@ -602,8 +602,7 @@ class AIVMM:
         result = True if self.get_shortest_path_length(point_a, point_b) else False
         return result
 
-    def find_local_optimal_path(self, trajectory, candidate_points, candidate_graph_obj, omega_i, phi_i, candi_count, n,
-                                i, k):
+    def find_local_optimal_path(self, candidate_graph_obj, omega_i, phi_i, candi_count, n, i, k):
         """
         获取局部最优路径
         :param candidate_graph_obj: 候选图
@@ -618,9 +617,6 @@ class AIVMM:
         f_ik = []
         pre_ik = []
 
-        print("**********", i, k)
-        print(n)
-
         for ii in range(n):
             f_ik.append([])
             pre_ik.append([])
@@ -628,29 +624,8 @@ class AIVMM:
                 f_ik[ii].append(-np.inf)
                 pre_ik[ii].append(-np.inf)
 
-        # for ii in range(i):
-        #     f_ik.append([])
-        #     pre_ik.append([])
-        #     for kk in range(k):
-        #         f_ik[ii].append(-np.inf)
-        #         pre_ik[ii].append(-np.inf)
-
-        print("@@@@@@@@@@@@@@@")
-        print(omega_i)
-        print()
-
         for t in range(candi_count[0]):
             f_ik[0][t] = omega_i[0, 0] * candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
-            # f_ik[0][t] = omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t])
-            # f_ik.append(omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t]))
-
-        print("phi_i: ", phi_i)
-        print()
-
-        for s in range(candi_count[i]):
-            if s != k:
-                for t in range(candi_count[i - 1]):
-                    phi_i[i][t, s] = -np.inf
 
         for j in range(1, n):
             for s in range(candi_count[j]):
@@ -660,16 +635,15 @@ class AIVMM:
         matched_path = []
 
         c = np.argmax([f_ik[n - 1][s] for s in range(candi_count[-1])])
-        print("CCCCC:", c)
         f_value_cik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
 
-        for l in range(1, n).__reversed__():
+        for m in range(1, n).__reversed__():
             matched_path.append(c)
-            c = pre_ik[l][c]
+            c = pre_ik[m][c]
 
         matched_path.append(c)
         matched_path.reverse()
-        return matched_path
+        return matched_path, f_value_cik
 
     def find_local_optimal_path_sequence(self, trajectory, candidate_roads, candidate_points):
         """
@@ -684,19 +658,13 @@ class AIVMM:
         candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
 
-        print("~~~~~~~~~~~~~~~")
-        for i in distance_weight_matrix:
-            print(i)
-            print()
-        print("~~~~~~~~~~~~~~~")
-
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
             for k in range(len(points)):
-                local_optimal_path = self.find_local_optimal_path(trajectory, candidate_points, candidate_graph_obj,
-                                                                  distance_weight_matrix[i], phi_i,
-                                                                  candi_count, len(trajectory), i, k)
-                local_optimal_path_sequence.append(local_optimal_path)
+                local_optimal_path, f_value = self.find_local_optimal_path(candidate_graph_obj,
+                                                                           distance_weight_matrix[i], phi_i,
+                                                                           candi_count, len(trajectory), i, k)
+                local_optimal_path_sequence.append((local_optimal_path, f_value))
 
         return local_optimal_path_sequence
 
@@ -711,6 +679,7 @@ class AIVMM:
         n = len(trajectory)
         final_path = []
         lop = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        
 
 
 class Main:
@@ -743,7 +712,8 @@ class Main:
             candidate_roads.append(road_temp)
             candidate_points.append(point_temp)
 
-        a = self.aivmm.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        # a = self.aivmm.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        a = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
 
 
 def load_trajectory():
