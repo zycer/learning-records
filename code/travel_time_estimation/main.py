@@ -210,7 +210,10 @@ class RoadNetworkGraph:
         :param vertex_id: 节点id
         :return: 节点所有邻居
         """
-        return self.adjacency_table[vertex_id].keys()
+        try:
+            return self.adjacency_table[vertex_id].keys()
+        except KeyError:
+            return []
 
     def heuristic(self, from_vertex_id, to_vertex_id):
         """
@@ -236,7 +239,7 @@ class RoadNetworkGraph:
         # for key, value in self.adjacency_table.items():
         #     print(f"{key}: {value}")
 
-    def shortest_path(self, start_id, goal_id):
+    def shortest_path_bak(self, start_id, goal_id):
         """
         启发式查找两点之间的最短路径
         :param start_id:
@@ -266,12 +269,7 @@ class RoadNetworkGraph:
             if current.vertex_id == goal_id:
                 break
 
-            try:
-                neighbors = self.neighbors(current.vertex_id)
-            except KeyError:
-                return []
-
-            for next_vertex_id in neighbors:
+            for next_vertex_id in self.neighbors(current.vertex_id):
                 if next_vertex_id == goal_id:
                     new_cost = 0
                 else:
@@ -285,7 +283,60 @@ class RoadNetworkGraph:
                 if next_vertex_id == goal_id:
                     break
 
+            if not self.neighbors(current.vertex_id):
+                del came_from[current.vertex_id]
+                del cost_so_far[current.vertex_id]
+
         return list(came_from.keys())
+
+    def shortest_path(self, start_id, goal_id):
+        """
+        启发式查找两点之间的最短路径
+        :param start_id:
+        :param goal_id:
+        :return:
+        """
+
+        class TempPriority:
+            def __init__(self, vertex_id, cost):
+                self.vertex_id = vertex_id
+                self.priority = cost
+
+            def __lt__(self, other):
+                return self.priority < other.priority
+
+        frontier = PriorityQueue()
+        frontier.put(TempPriority(start_id, 0))
+
+        came_from = OrderedDict()
+        cost_so_far = dict()
+        came_from[start_id] = None
+        cost_so_far[start_id] = 0
+
+        while not frontier.empty():
+            current = frontier.get()
+
+            if current.vertex_id == goal_id:
+                current = frontier.get()
+
+            for next_vertex_id in self.neighbors(current.vertex_id):
+                new_cost = cost_so_far[current.vertex_id] + self.heuristic(current.vertex_id, next_vertex_id)
+                if next_vertex_id not in cost_so_far or new_cost < cost_so_far[next_vertex_id]:
+                    cost_so_far[next_vertex_id] = new_cost
+                    priority = new_cost
+                    frontier.put(TempPriority(next_vertex_id, priority))
+                    came_from[next_vertex_id] = current.vertex_id
+
+            if not self.neighbors(current.vertex_id):
+                del came_from[current.vertex_id]
+                del cost_so_far[current.vertex_id]
+
+        came_from_keys = list(came_from.keys())
+
+        try:
+            return came_from_keys[:came_from_keys.index(goal_id) + 1]
+        except ValueError:
+            return []
 
     def shortest_path_length(self, start_id, goal_id):
         """
@@ -300,9 +351,17 @@ class RoadNetworkGraph:
         :return:
         """
         # 最初没有数据，假设车辆平均行驶速度等于限速的平均值
+        print("~~~~~~~~~~~~")
+        for i in self.adjacency_table:
+            print(i)
+        print("~~~~~~~~~~~~\n")
         average_speed_list = []
         shortest_path = self.shortest_path(start_id, goal_id)
+        print("shortest_path：", shortest_path)
+        print("start_id:", start_id)
+        print("goal_id:", goal_id)
         for i in range(len(shortest_path) - 1):
+            print(shortest_path[i])
             segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
             if segment.average_speed != -1:
                 average_speed_list.append(segment.average_speed)
@@ -457,8 +516,9 @@ class AIVMM:
         :return: 两个连续候选点之间的最短路径和直路径的相似性(过度概率)
         """
         euclid_distance = self.euclid_distance(sample_point_pre, sample_point_cur)
-        return euclid_distance / self.get_shortest_path_length(
-            self.road_graph.road_segment[pre_road_id].fro, self.road_graph.road_segment[cur_road_id].to)
+        shortest_path_length = self.get_shortest_path_length(self.road_graph.road_segment[pre_road_id].fro,
+                                                             self.road_graph.road_segment[cur_road_id].to)
+        return euclid_distance / shortest_path_length if shortest_path_length else 0
 
     def spatial_analysis(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id):
         """
@@ -679,7 +739,8 @@ class AIVMM:
         n = len(trajectory)
         final_path = []
         lop = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
-        
+        for i in lop:
+            print(i)
 
 
 class Main:
@@ -729,5 +790,8 @@ def load_trajectory():
 
 if __name__ == "__main__":
     trajectory_list = load_trajectory()
-    trajectory_list.popitem()[1]
-    Main().match_candidate(trajectory_list.popitem()[1])
+    # trajectory_list.popitem()[1]
+    # Main().match_candidate(trajectory_list.popitem()[1])
+    road = RoadNetworkGraph()
+    road.load_road_data()
+    print(road.shortest_path("V002", "V006"))
