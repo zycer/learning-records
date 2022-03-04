@@ -239,56 +239,6 @@ class RoadNetworkGraph:
         # for key, value in self.adjacency_table.items():
         #     print(f"{key}: {value}")
 
-    def shortest_path_bak(self, start_id, goal_id):
-        """
-        启发式查找两点之间的最短路径
-        :param start_id:
-        :param goal_id:
-        :return:
-        """
-
-        class TempPriority:
-            def __init__(self, vertex_id, cost):
-                self.vertex_id = vertex_id
-                self.priority = cost
-
-            def __lt__(self, other):
-                return self.priority < other.priority
-
-        frontier = PriorityQueue()
-        frontier.put(TempPriority(start_id, 0))
-
-        came_from = OrderedDict()
-        cost_so_far = dict()
-        came_from[start_id] = None
-        cost_so_far[start_id] = 0
-
-        while not frontier.empty():
-            current = frontier.get()
-
-            if current.vertex_id == goal_id:
-                break
-
-            for next_vertex_id in self.neighbors(current.vertex_id):
-                if next_vertex_id == goal_id:
-                    new_cost = 0
-                else:
-                    new_cost = cost_so_far[current.vertex_id] + \
-                               float(self.adjacency_table[current.vertex_id][next_vertex_id].mileage)
-                if next_vertex_id not in cost_so_far or new_cost < cost_so_far[next_vertex_id]:
-                    cost_so_far[next_vertex_id] = new_cost
-                    priority = new_cost + self.heuristic(current.vertex_id, next_vertex_id)
-                    frontier.put(TempPriority(next_vertex_id, priority))
-                    came_from[next_vertex_id] = current.vertex_id
-                if next_vertex_id == goal_id:
-                    break
-
-            if not self.neighbors(current.vertex_id):
-                del came_from[current.vertex_id]
-                del cost_so_far[current.vertex_id]
-
-        return list(came_from.keys())
-
     def shortest_path(self, start_id, goal_id):
         """
         启发式查找两点之间的最短路径
@@ -317,26 +267,27 @@ class RoadNetworkGraph:
             current = frontier.get()
 
             if current.vertex_id == goal_id:
-                current = frontier.get()
+                while not frontier.empty():
+                    del came_from[frontier.get().vertex_id]
+                return list(came_from.keys())
+
+            while not frontier.empty():
+                vertex_id = frontier.get().vertex_id
+                del came_from[vertex_id]
+                del cost_so_far[vertex_id]
 
             for next_vertex_id in self.neighbors(current.vertex_id):
                 new_cost = cost_so_far[current.vertex_id] + self.heuristic(current.vertex_id, next_vertex_id)
                 if next_vertex_id not in cost_so_far or new_cost < cost_so_far[next_vertex_id]:
                     cost_so_far[next_vertex_id] = new_cost
-                    priority = new_cost
+                    priority = new_cost + self.heuristic(goal_id, next_vertex_id)
                     frontier.put(TempPriority(next_vertex_id, priority))
                     came_from[next_vertex_id] = current.vertex_id
 
-            if not self.neighbors(current.vertex_id):
-                del came_from[current.vertex_id]
-                del cost_so_far[current.vertex_id]
 
-        came_from_keys = list(came_from.keys())
 
-        try:
-            return came_from_keys[:came_from_keys.index(goal_id) + 1]
-        except ValueError:
-            return []
+        return []
+
 
     def shortest_path_length(self, start_id, goal_id):
         """
@@ -790,8 +741,5 @@ def load_trajectory():
 
 if __name__ == "__main__":
     trajectory_list = load_trajectory()
-    # trajectory_list.popitem()[1]
-    # Main().match_candidate(trajectory_list.popitem()[1])
-    road = RoadNetworkGraph()
-    road.load_road_data()
-    print(road.shortest_path("V002", "V006"))
+    trajectory_list.popitem()[1]
+    Main().match_candidate(trajectory_list.popitem()[1])

@@ -10,7 +10,7 @@ import numpy as np
 
 
 class KNN:
-    def __init__(self, trajectory, roads, neighbor_num=2):
+    def __init__(self, trajectory, roads, neighbor_num=3):
         """
         param: trajectory: GPS轨迹点列表 [[x1, y1], [x2, y2],...]
         param: segments: GPS轨迹点附近所有路段列表 [{id1: segment_obj1, id2: segment_obj2,...}, {idx: segment_obj,...},...]
