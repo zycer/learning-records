@@ -602,7 +602,8 @@ class AIVMM:
         result = True if self.get_shortest_path_length(point_a, point_b) else False
         return result
 
-    def find_local_optimal_path(self, trajectory, candidate_points, candidate_graph_obj, omega_i, phi_i, candi_count, n, i, k):
+    def find_local_optimal_path(self, trajectory, candidate_points, candidate_graph_obj, omega_i, phi_i, candi_count, n,
+                                i, k):
         """
         获取局部最优路径
         :param candidate_graph_obj: 候选图
@@ -634,12 +635,12 @@ class AIVMM:
         #         f_ik[ii].append(-np.inf)
         #         pre_ik[ii].append(-np.inf)
 
-        print(f_ik)
-        print(pre_ik)
-        print(candidate_graph_obj)
+        print("@@@@@@@@@@@@@@@")
+        print(omega_i)
+        print()
 
         for t in range(candi_count[0]):
-            f_ik[0][t] = omega_i[i][0] * candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
+            f_ik[0][t] = omega_i[0, 0] * candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
             # f_ik[0][t] = omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t])
             # f_ik.append(omega_i[i][0] * self.gps_observation_probability(trajectory[0], candidate_points[0][t]))
 
@@ -653,17 +654,18 @@ class AIVMM:
 
         for j in range(1, n):
             for s in range(candi_count[j]):
-                f_ik[j][s] = max([f_ik[j - 1][t] + phi_i[j-1][t, s] for t in range(candi_count[j - 1])])
-                pre_ik[j][s] = max([f_ik[j - 1][t] + phi_i[j-1][t, s] for t in range(candi_count[j - 1])])
+                f_ik[j][s] = max([f_ik[j - 1][t] + phi_i[j - 1][t, s] for t in range(candi_count[j - 1])])
+                pre_ik[j][s] = np.argmax([f_ik[j - 1][t] + phi_i[j - 1][t, s] for t in range(candi_count[j - 1])])
 
         matched_path = []
 
-        c = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
+        c = np.argmax([f_ik[n - 1][s] for s in range(candi_count[-1])])
+        print("CCCCC:", c)
         f_value_cik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
 
-        for i in range(1, n).__reversed__():
+        for l in range(1, n).__reversed__():
             matched_path.append(c)
-            c = pre_ik[c]
+            c = pre_ik[l][c]
 
         matched_path.append(c)
         matched_path.reverse()
@@ -681,10 +683,18 @@ class AIVMM:
         candi_count = [len(points) for points in candidate_points]
         candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
+
+        print("~~~~~~~~~~~~~~~")
+        for i in distance_weight_matrix:
+            print(i)
+            print()
+        print("~~~~~~~~~~~~~~~")
+
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
             for k in range(len(points)):
-                local_optimal_path = self.find_local_optimal_path(trajectory, candidate_points, candidate_graph_obj, distance_weight_matrix[i], phi_i,
+                local_optimal_path = self.find_local_optimal_path(trajectory, candidate_points, candidate_graph_obj,
+                                                                  distance_weight_matrix[i], phi_i,
                                                                   candi_count, len(trajectory), i, k)
                 local_optimal_path_sequence.append(local_optimal_path)
 
@@ -692,7 +702,7 @@ class AIVMM:
 
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
-                                         self.path_weight, self.road_graph.road_segment)
+                                             self.path_weight, self.road_graph.road_segment)
         candidate_graph_obj.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
         candidate_graph_obj.show_data()
         return candidate_graph_obj
