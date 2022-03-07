@@ -213,7 +213,9 @@ class KNN:
                 match_set = [(key, value[0], value[1]) for key, value in last_matched.items()]
                 matched.append(match_set)
 
-        print("匹配结果：", matched)
+        print("匹配结果：")
+        for i in matched:
+            print(i)
         print("匹配用时：", time.time() - start_time)
 
         if is_plot:

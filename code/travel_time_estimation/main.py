@@ -203,6 +203,7 @@ class RoadNetworkGraph:
 
         # self.create_graph_adjacency_matrix()
         self.create_graph_adjacency_table()
+        self.show_graph_data()
 
     def neighbors(self, vertex_id):
         """
@@ -230,6 +231,7 @@ class RoadNetworkGraph:
             print(key, value)
 
     def show_graph_data(self):
+        print("路网数据：")
         for key, vertex in self.vertex.items():
             print(f"{key}: {vertex.latitude}, {vertex.longitude}")
         print()
@@ -284,10 +286,7 @@ class RoadNetworkGraph:
                     frontier.put(TempPriority(next_vertex_id, priority))
                     came_from[next_vertex_id] = current.vertex_id
 
-
-
         return []
-
 
     def shortest_path_length(self, start_id, goal_id):
         """
@@ -302,15 +301,8 @@ class RoadNetworkGraph:
         :return:
         """
         # 最初没有数据，假设车辆平均行驶速度等于限速的平均值
-        print("~~~~~~~~~~~~")
-        for i in self.adjacency_table:
-            print(i)
-        print("~~~~~~~~~~~~\n")
         average_speed_list = []
         shortest_path = self.shortest_path(start_id, goal_id)
-        print("shortest_path：", shortest_path)
-        print("start_id:", start_id)
-        print("goal_id:", goal_id)
         for i in range(len(shortest_path) - 1):
             print(shortest_path[i])
             segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
@@ -392,11 +384,12 @@ class RoadNetworkGraph:
 
 
 class AIVMM:
-    def __init__(self, graph: RoadNetworkGraph, mu, sigma, beta):
+    def __init__(self, graph: RoadNetworkGraph, mu, sigma, beta, neighbor_num=3):
         self.road_graph = graph
         self.mu = mu
         self.beta = beta
         self.sigma = sigma
+        self.neighbor_num = neighbor_num
 
     # 位置和道路分析
     @classmethod
@@ -688,21 +681,63 @@ class AIVMM:
 
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
         n = len(trajectory)
+        m = self.neighbor_num
         final_path = []
+        vote = []
         lop = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+
+        print("所有候选点的局部最优路径：")
         for i in lop:
             print(i)
 
+        exit()
+
+        for i in range(n):
+            vote.append([])
+            final_path.append(None)
+            for j in range(m):
+                vote[i].append([])
+                for k in range(len(candidate_points[0])):
+                    vote[i][j].append([])
+                    vote[i][j][k] = 0
+
+        for i in range(n):
+            for j in range(m):
+                c_from = lop[i][0][j]
+                c_to = lop[i][0][j + 1]
+                vote[j][c_from][c_to] = vote[j][c_from][c_to] + 1
+
+        final_path[0], final_path[0] = np.argmax(
+            [vote[0][c_from][c_to] for c_from in range(len(candidate_points[0])) for c_to in
+             range(len(candidate_points[1]))])
+
+        temp = []
+        for c_from in range(len(candidate_points[0])):
+            temp.append([])
+            for c_to in range(len(candidate_points[1])):
+                temp[c_from].append(vote[0][c_from][c_to])
+
+        print(temp)
+        print(np.argmax(temp, axis=0))
+        final_path[0], final_path[0] = np.argmax(temp)
+
+
+        for s in range(1, m):
+            final_path[s] = np.argmax([vote[s][final_path[s]][c_to] for c_to in range(len(candidate_points[s+1]))])
+
+        print(final_path)
+        return final_path
+
 
 class Main:
-    def __init__(self, mu=5, sigma=25, beta=5):
+    def __init__(self, mu=5, sigma=25, beta=5, neighbor_num=3):
         self.mu = mu
         self.sigma = sigma
         self.beta = beta
 
         self.road_graph = RoadNetworkGraph()
         self.road_graph.load_road_data()
-        self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta)
+        self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
 
     def match_candidate(self, trajectory):
         matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory)
@@ -724,8 +759,7 @@ class Main:
             candidate_roads.append(road_temp)
             candidate_points.append(point_temp)
 
-        # a = self.aivmm.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
-        a = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
+        self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
 
 
 def load_trajectory():
