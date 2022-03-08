@@ -23,6 +23,7 @@ class CandidateGraph:
             self.to = to
             self.idx = idx
             self.weight = None
+            self.vote = 0
 
     def __init__(self, check_legitimate_path_func, observation_probability_func, path_weight_func, road_segment):
         self.vertex = {}
@@ -390,6 +391,7 @@ class AIVMM:
         self.beta = beta
         self.sigma = sigma
         self.neighbor_num = neighbor_num
+        self.candidate_graph_obj = None
 
     # 位置和道路分析
     @classmethod
@@ -606,10 +608,9 @@ class AIVMM:
         result = True if self.get_shortest_path_length(point_a, point_b) else False
         return result
 
-    def find_local_optimal_path(self, candidate_graph_obj, omega_i, phi_i, candi_count, n, i, k):
+    def find_local_optimal_path(self, omega_i, phi_i, candi_count, n, i, k):
         """
         获取局部最优路径
-        :param candidate_graph_obj: 候选图
         :param omega_i: 距离权重矩阵
         :param phi_i: 权重评分矩阵
         :param candi_count: 各个采样点的候选点个数
@@ -629,7 +630,7 @@ class AIVMM:
                 pre_ik[ii].append(-np.inf)
 
         for t in range(candi_count[0]):
-            f_ik[0][t] = omega_i[0, 0] * candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
+            f_ik[0][t] = omega_i[0, 0] * self.candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
 
         for j in range(1, n):
             for s in range(candi_count[j]):
@@ -641,9 +642,9 @@ class AIVMM:
         c = np.argmax([f_ik[n - 1][s] for s in range(candi_count[-1])])
         f_value_cik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
 
-        for m in range(1, n).__reversed__():
+        for i in range(1, n).__reversed__():
             matched_path.append(c)
-            c = pre_ik[m][c]
+            c = pre_ik[i][c]
 
         matched_path.append(c)
         matched_path.reverse()
@@ -658,19 +659,25 @@ class AIVMM:
         :return: 列表，局部最优路径序列
         """
         local_optimal_path_sequence = []
+        f_value_sequence = []
         candi_count = [len(points) for points in candidate_points]
-        candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
+        self.candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
 
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
+            lop_i = []
+            f_value_i = []
             for k in range(len(points)):
-                local_optimal_path, f_value = self.find_local_optimal_path(candidate_graph_obj,
-                                                                           distance_weight_matrix[i], phi_i,
+                local_optimal_path, f_value = self.find_local_optimal_path(distance_weight_matrix[i], phi_i,
                                                                            candi_count, len(trajectory), i, k)
-                local_optimal_path_sequence.append((local_optimal_path, f_value))
+                lop_i.append(local_optimal_path)
+                f_value_i.append(f_value)
 
-        return local_optimal_path_sequence
+            local_optimal_path_sequence.append(lop_i)
+            f_value_sequence.append(f_value_i)
+
+        return local_optimal_path_sequence, f_value_sequence
 
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
@@ -681,51 +688,18 @@ class AIVMM:
 
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
         n = len(trajectory)
-        m = self.neighbor_num
         final_path = []
         vote = []
-        lop = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        lop_sequence, f_value_sequence = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
 
-        print("所有候选点的局部最优路径：")
-        for i in lop:
-            print(i)
+        for lop_list in lop_sequence:
+            for lop in lop_list:
+                for i in range(n - 1):
+                    self.candidate_graph_obj.edge[f"{i}&{lop[i]}|{i+1}&{lop[i+1]}"].vote += 1
 
-        exit()
+        for key, value in self.candidate_graph_obj.edge.items():
+            print(key, value.vote)
 
-        for i in range(n):
-            vote.append([])
-            final_path.append(None)
-            for j in range(m):
-                vote[i].append([])
-                for k in range(len(candidate_points[0])):
-                    vote[i][j].append([])
-                    vote[i][j][k] = 0
-
-        for i in range(n):
-            for j in range(m):
-                c_from = lop[i][0][j]
-                c_to = lop[i][0][j + 1]
-                vote[j][c_from][c_to] = vote[j][c_from][c_to] + 1
-
-        final_path[0], final_path[0] = np.argmax(
-            [vote[0][c_from][c_to] for c_from in range(len(candidate_points[0])) for c_to in
-             range(len(candidate_points[1]))])
-
-        temp = []
-        for c_from in range(len(candidate_points[0])):
-            temp.append([])
-            for c_to in range(len(candidate_points[1])):
-                temp[c_from].append(vote[0][c_from][c_to])
-
-        print(temp)
-        print(np.argmax(temp, axis=0))
-        final_path[0], final_path[0] = np.argmax(temp)
-
-
-        for s in range(1, m):
-            final_path[s] = np.argmax([vote[s][final_path[s]][c_to] for c_to in range(len(candidate_points[s+1]))])
-
-        print(final_path)
         return final_path
 
 
