@@ -306,7 +306,7 @@ class RoadNetworkGraph:
         """
         if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
             if start.idx == goal.idx:
-                return 1
+                return 2
             else:
                 return len(self.shortest_path(start.to, goal.fro))
         else:
