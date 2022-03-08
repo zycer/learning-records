@@ -39,6 +39,7 @@ class CandidateGraph:
             for j, point_j in enumerate(candidate_points[i]):
                 self.adjacency_table[f"{i}&{j}"] = {}
                 for k, point_k in enumerate(candidate_points[i + 1]):
+                    print(f"{i}--{j}, {i+1}--{k}")
                     if f"{i}&{j}" not in self.vertex:
                         self.vertex[f"{i}&{j}"] = self.Vertex(f"{i}&{j}")
                         observation_probability = self.observation_probability_func(point_j, trajectory[i])
@@ -48,13 +49,13 @@ class CandidateGraph:
                         self.vertex[f"{i + 1}&{k}"] = self.Vertex(f"{i + 1}&{k}")
                         observation_probability = self.observation_probability_func(point_k, trajectory[i + 1])
                         self.vertex[f"{i + 1}&{k}"].observation_probability = observation_probability
-                    if self.check_legitimate_path_func(self.road_segment[candidate_roads[i][j]].to,
-                                                       self.road_segment[candidate_roads[i][k]].fro):
+                    if self.check_legitimate_path_func(self.road_segment[candidate_roads[i][j]],
+                                                       self.road_segment[candidate_roads[i + 1][k]]):
                         edge_id = f"{i}&{j}|{i + 1}&{k}"
                         edge = self.Edge(edge_id, f"{i}&{j}", f"{i + 1}&{k}")
-                        edge.weight = self.path_weight_func(trajectory[i], trajectory[i + 1], candidate_points[i][j],
-                                                            candidate_roads[i][j],
-                                                            candidate_roads[i][k])
+                        edge.weight = self.path_weight_func(trajectory[i], trajectory[i + 1],
+                                                            candidate_points[i + 1][j], candidate_roads[i][j],
+                                                            candidate_roads[i + 1][k])
                         self.edge[edge_id] = edge
                         self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
 
@@ -237,18 +238,27 @@ class RoadNetworkGraph:
             print(f"{key}: {vertex.latitude}, {vertex.longitude}")
         print()
         for key, segment in self.road_segment.items():
-            print(f"{key}: {segment.name}---{segment.mileage}----{segment.road_nodes}")
+            print(f"{key}: {segment.name}---{segment.fro},{segment.to}----{segment.road_nodes}")
 
         # for key, value in self.adjacency_table.items():
         #     print(f"{key}: {value}")
 
-    def shortest_path(self, start_id, goal_id):
+    def shortest_path(self, start, goal):
         """
         启发式查找两点之间的最短路径
         :param start_id:
         :param goal_id:
         :return:
         """
+        if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
+            if start.idx == goal.idx:
+                return [goal.fro, start.to]
+            else:
+                start_id = start.to
+                goal_id = goal.fro
+        else:
+            start_id = start
+            goal_id = goal
 
         class TempPriority:
             def __init__(self, vertex_id, cost):
@@ -289,21 +299,27 @@ class RoadNetworkGraph:
 
         return []
 
-    def shortest_path_length(self, start_id, goal_id):
+    def shortest_path_length(self, start, goal):
         """
         最短路径长度
         :return:
         """
-        return len(self.shortest_path(start_id, goal_id))
+        if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
+            if start.idx == goal.idx:
+                return 1
+            else:
+                return len(self.shortest_path(start.to, goal.fro))
+        else:
+            return len(self.shortest_path(start, goal))
 
-    def average_speed_spl(self, start_id, goal_id):
+    def average_speed_spl(self, start, goal):
         """
         最短路径上车辆行驶的平均速度
         :return:
         """
         # 最初没有数据，假设车辆平均行驶速度等于限速的平均值
         average_speed_list = []
-        shortest_path = self.shortest_path(start_id, goal_id)
+        shortest_path = self.shortest_path(start, goal)
         for i in range(len(shortest_path) - 1):
             print(shortest_path[i])
             segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
@@ -314,13 +330,13 @@ class RoadNetworkGraph:
 
         return sum(average_speed_list) / len(average_speed_list) if len(average_speed_list) else 0
 
-    def weighted_speed_limit_spl(self, start_id, goal_id):
+    def weighted_speed_limit_spl(self, start, goal):
         """
         最短路径上车辆的加权速度限制
         :return:
         """
         speed_limit = []
-        shortest_path = self.shortest_path(start_id, goal_id)
+        shortest_path = self.shortest_path(start, goal)
         for i in range(len(shortest_path) - 1):
             segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
             speed_limit.append(segment.speed_limit)
@@ -423,26 +439,26 @@ class AIVMM:
         return (1 / (math.sqrt(2 * math.pi) * self.sigma)) * math.exp(
             -((euclid_distance_ij - self.mu) ** 2) / (2 * (self.sigma ** 2)))
 
-    def get_shortest_path_length(self, start_id, goal_id):
+    def get_shortest_path_length(self, start, goal):
         """
         获取最短路径长度
         :return:
         """
-        return self.road_graph.shortest_path_length(start_id, goal_id)
+        return self.road_graph.shortest_path_length(start, goal)
 
-    def get_average_speed_spl(self, start_id, goal_id):
+    def get_average_speed_spl(self, start, goal):
         """
         获取最短路径上车辆行驶的平均速度
         :return:
         """
-        return self.road_graph.average_speed_spl(start_id, goal_id)
+        return self.road_graph.average_speed_spl(start, goal)
 
-    def get_weighted_speed_limit_spl(self, start_id, goal_id):
+    def get_weighted_speed_limit_spl(self, start, goal):
         """
         获取最短路径上车辆的加权速度限制
         :return:
         """
-        return self.road_graph.weighted_speed_limit_spl(start_id, goal_id)
+        return self.road_graph.weighted_speed_limit_spl(start, goal)
 
     def get_road_speed_limit(self, road_id):
         """
@@ -462,8 +478,8 @@ class AIVMM:
         :return: 两个连续候选点之间的最短路径和直路径的相似性(过度概率)
         """
         euclid_distance = self.euclid_distance(sample_point_pre, sample_point_cur)
-        shortest_path_length = self.get_shortest_path_length(self.road_graph.road_segment[pre_road_id].fro,
-                                                             self.road_graph.road_segment[cur_road_id].to)
+        shortest_path_length = self.get_shortest_path_length(self.road_graph.road_segment[pre_road_id],
+                                                             self.road_graph.road_segment[cur_road_id])
         return euclid_distance / shortest_path_length if shortest_path_length else 0
 
     def spatial_analysis(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id):
@@ -476,14 +492,14 @@ class AIVMM:
         ep = self.excess_probability(sample_point_pre, sample_point_cur, pre_road_id, cur_road_id)
         return gop * ep
 
-    def time_analysis(self, start_id, goal_id):
+    def time_analysis(self, start, goal):
         """
         时间分析函数
         param: candidate_point_i: 候选点i
         param: candidate_point_j: 沿着候选点j
         """
-        ass = self.get_average_speed_spl(start_id, goal_id)
-        wsls = self.get_weighted_speed_limit_spl(start_id, goal_id)
+        ass = self.get_average_speed_spl(start, goal)
+        wsls = self.get_weighted_speed_limit_spl(start, goal)
         return ass / (abs(ass - wsls) + ass) if abs(ass - wsls) + ass else 0
 
     def road_level_factor(self, pre_road_id, cur_road_id):
@@ -500,8 +516,7 @@ class AIVMM:
     def path_weight(self, sample_point_pre, sample_point_cur,
                     candidate_point_cur, pre_road_id, cur_road_id):
         sa = self.spatial_analysis(sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id)
-        ta = self.time_analysis(self.road_graph.road_segment[pre_road_id].to,
-                                self.road_graph.road_segment[cur_road_id].fro)
+        ta = self.time_analysis(self.road_graph.road_segment[pre_road_id], self.road_graph.road_segment[cur_road_id])
         rlf = self.road_level_factor(pre_road_id, cur_road_id)
         return sa * ta * rlf
 
@@ -598,15 +613,14 @@ class AIVMM:
         print("-------------end-------------")
         return distance_weight_matrix, phi_list
 
-    def check_legitimate_path(self, point_a, point_b):
+    def check_legitimate_path(self, road_a, road_b):
         """
         检查两点之间是否可达
-        :param point_a: 点a
-        :param point_b: 点b
+        :param road_a: 点a
+        :param road_b: 点b
         :return: 是否可达
         """
-        result = True if self.get_shortest_path_length(point_a, point_b) else False
-        return result
+        return True if self.get_shortest_path_length(road_a, road_b) else False
 
     def find_local_optimal_path(self, omega_i, phi_i, candi_count, n, i, k):
         """
@@ -691,7 +705,7 @@ class AIVMM:
         final_path = []
         vote = []
         lop_sequence, f_value_sequence = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
-
+        exit()
         for lop_list in lop_sequence:
             for lop in lop_list:
                 for i in range(n - 1):
