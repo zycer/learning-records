@@ -9,46 +9,6 @@ import itertools
 import numpy as np
 
 
-def wgs842mercator(wgs84):
-    def calculate(long, lat):
-        x = float(long) * 20037508.34 / 180
-        y = math.log(math.tan((90 + float(lat)) * math.pi / 360)) / (math.pi / 180)
-        y = y * 20037508.34 / 180
-        return [x, y]
-
-    result = []
-    if wgs84 is None or len(wgs84) == 0:
-        return result
-    elif isinstance(wgs84[0], list):
-        for longitude, latitude in wgs84:
-            result.append(calculate(longitude, latitude))
-    else:
-        longitude, latitude = wgs84
-        return calculate(longitude, latitude)
-
-    return result
-
-
-def mercator2wgs84(mercator):
-    def calculate(xx, yy):
-        long = float(xx) / 20037508.34 * 180
-        lat = float(yy) / 20037508.34 * 180
-        lat = 180 / math.pi * (2 * math.atan(math.exp(lat * math.pi / 180)) - math.pi / 2)
-        return [long, lat]
-
-    result = []
-    if mercator is None or len(mercator) == 0:
-        return result
-    elif isinstance(mercator[0], list):
-        for x, y in mercator:
-            result.append(calculate(x, y))
-    else:
-        x, y = mercator
-        return calculate(x, y)
-
-    return result
-
-
 class KNN:
     def __init__(self, trajectory, roads, neighbor_num=3):
         """
@@ -68,6 +28,46 @@ class KNN:
         self.segment_lines = []
         self.segment_id_list = []
         self.r = 6367
+
+    @classmethod
+    def wgs842mercator(cls, wgs84):
+        def calculate(long, lat):
+            x = float(long) * 20037508.34 / 180
+            y = math.log(math.tan((90 + float(lat)) * math.pi / 360)) / (math.pi / 180)
+            y = y * 20037508.34 / 180
+            return [x, y]
+
+        result = []
+        if wgs84 is None or len(wgs84) == 0:
+            return result
+        elif isinstance(wgs84[0], list):
+            for longitude, latitude in wgs84:
+                result.append(calculate(longitude, latitude))
+        else:
+            longitude, latitude = wgs84
+            return calculate(longitude, latitude)
+
+        return result
+
+    @classmethod
+    def mercator2wgs84(cls, mercator):
+        def calculate(xx, yy):
+            long = float(xx) / 20037508.34 * 180
+            lat = float(yy) / 20037508.34 * 180
+            lat = 180 / math.pi * (2 * math.atan(math.exp(lat * math.pi / 180)) - math.pi / 2)
+            return [long, lat]
+
+        result = []
+        if mercator is None or len(mercator) == 0:
+            return result
+        elif isinstance(mercator[0], list):
+            for x, y in mercator:
+                result.append(calculate(x, y))
+        else:
+            x, y = mercator
+            return calculate(x, y)
+
+        return result
 
     @classmethod
     def generate_equation(cls, **kwargs):
@@ -141,8 +141,8 @@ class KNN:
         return True
 
     def generate_candidate_point(self, segment, point):
-        point_mercator: list = wgs842mercator(point)
-        segment_mercator = wgs842mercator(segment)
+        point_mercator: list = self.wgs842mercator(point)
+        segment_mercator = self.wgs842mercator(segment)
         segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
         if k0:
             vertical_e, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": -1 / k0 if k0 else None})
@@ -160,7 +160,7 @@ class KNN:
             candidate_point = segment[0] if distance_1 < distance_2 else segment[1]
 
         else:
-            candidate_point = mercator2wgs84(vertical_point)
+            candidate_point = self.mercator2wgs84(vertical_point)
 
         return self.is_mid(vertical_point, segment_mercator), tuple(candidate_point)
 
@@ -189,6 +189,7 @@ class KNN:
                 distance = self.dist_to_arc_length(distance)
                 match_dict = OrderedDict()
                 for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
+                    # temp = [segment[0] for segment in match_set]
                     is_mid, candidate_point = self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
 
                     if self.segment_id_list[num][segment_id] not in match_dict:
