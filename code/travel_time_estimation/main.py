@@ -9,6 +9,7 @@ from kd_tree import KNN
 from queue import PriorityQueue
 from random import uniform, randint
 from collections import OrderedDict
+from geopy.distance import geodesic
 
 
 class CandidateGraph:
@@ -39,7 +40,6 @@ class CandidateGraph:
             for j, point_j in enumerate(candidate_points[i]):
                 self.adjacency_table[f"{i}&{j}"] = {}
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    print(f"{i}--{j}, {i+1}--{k}")
                     if f"{i}&{j}" not in self.vertex:
                         self.vertex[f"{i}&{j}"] = self.Vertex(f"{i}&{j}")
                         observation_probability = self.observation_probability_func(point_j, trajectory[i])
@@ -60,13 +60,16 @@ class CandidateGraph:
                         self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
 
     def show_data(self):
+        print("-" * 70)
         print("候选图：")
+        print("边\t\t\t起点\t\t终点\t\t权重")
         for key, value in self.edge.items():
-            print(value.idx, value.fro, value.to, value.weight)
+            print("%s\t\t%s\t\t%s\t\t%s" % (value.idx, value.fro, value.to, value.weight))
         print()
-        for key, value in self.adjacency_table.items():
-            print(key, value)
-        print("--------------------------")
+        print("顶点\t\t观测概率")
+        for key, value in self.vertex.items():
+            print("%s\t\t%s" % (key, value.observation_probability))
+        print("-" * 70)
 
 
 class RoadNetworkGraph:
@@ -225,8 +228,11 @@ class RoadNetworkGraph:
         :param to_vertex_id: 终点节点id
         :return: 两点的预估代价
         """
-        return math.hypot(self.vertex[from_vertex_id].latitude - self.vertex[to_vertex_id].latitude,
-                          self.vertex[from_vertex_id].longitude - self.vertex[to_vertex_id].longitude)
+        # return math.hypot(self.vertex[from_vertex_id].latitude - self.vertex[to_vertex_id].latitude,
+        #                   self.vertex[from_vertex_id].longitude - self.vertex[to_vertex_id].longitude)
+
+        return geodesic((self.vertex[from_vertex_id].latitude, self.vertex[from_vertex_id].longitude),
+                        (self.vertex[to_vertex_id].latitude, self.vertex[to_vertex_id].longitude)).km
 
     def show_adjacency_table(self):
         for key, value in self.adjacency_table.items():
@@ -234,20 +240,20 @@ class RoadNetworkGraph:
 
     def show_graph_data(self):
         print("路网数据：")
+        print("路口\t\t\t\t经度\t\t\t\t\t纬度")
         for key, vertex in self.vertex.items():
-            print(f"{key}: {vertex.latitude}, {vertex.longitude}")
+            print(f"{key}\t{vertex.longitude}\t{vertex.latitude}")
         print()
+        print("路段\t\t\t名称\t\t\t起点\t\t\t终点\t\t\t子路段")
         for key, segment in self.road_segment.items():
-            print(f"{key}: {segment.name}---{segment.fro},{segment.to}----{segment.road_nodes}")
-
-        # for key, value in self.adjacency_table.items():
-        #     print(f"{key}: {value}")
+            print(f"{key}\t\t{segment.name}\t\t{segment.fro}\t\t{segment.to}\t\t{segment.road_nodes}")
+        print("-" * 70)
 
     def shortest_path(self, start, goal):
         """
         启发式查找两点之间的最短路径
-        :param start_id:
-        :param goal_id:
+        :param start:
+        :param goal:
         :return:
         """
         if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
@@ -321,7 +327,6 @@ class RoadNetworkGraph:
         average_speed_list = []
         shortest_path = self.shortest_path(start, goal)
         for i in range(len(shortest_path) - 1):
-            print(shortest_path[i])
             segment = self.adjacency_table[shortest_path[i]][shortest_path[i + 1]]
             if segment.average_speed != -1:
                 average_speed_list.append(segment.average_speed)
@@ -418,16 +423,16 @@ class AIVMM:
         :param point_b: 点B
         :return: 欧几里得距离
         """
-        x1, y1 = point_a
-        x2, y2 = point_b
-        return math.hypot(x1 - x2, y1 - y2)
+        long_1, lat_1 = point_a
+        long_2, lat_2 = point_b
+        return geodesic((lat_1, long_1), (lat_2, long_2)).km
 
     def distance_weight(self, point_a, point_b):
         """
-        两点之间的距离权重，公式为：exp(dist(pi,pj)^2 / beta^2)
+        两点之间的距离权重，公式为：exp(-(dist(pi,pj)^2 / beta^2))
         """
         euclid_distance = self.euclid_distance(point_a, point_b)
-        return math.exp(euclid_distance ** 2 / self.beta ** 2)
+        return math.exp(-(euclid_distance ** 2 / self.beta ** 2))
 
     def gps_observation_probability(self, candidate_point, sample_point):
         """
@@ -435,9 +440,8 @@ class AIVMM:
         param: candidate_point: 候选点
         param: sample_point: 采样点
         """
-        euclid_distance_ij = self.euclid_distance(candidate_point, sample_point)
-        return (1 / (math.sqrt(2 * math.pi) * self.sigma)) * math.exp(
-            -((euclid_distance_ij - self.mu) ** 2) / (2 * (self.sigma ** 2)))
+        euclid_distance = self.euclid_distance(candidate_point, sample_point)
+        return np.exp(-((euclid_distance - self.mu) ** 2) / (2 * (self.sigma ** 2)))
 
     def get_shortest_path_length(self, start, goal):
         """
@@ -513,8 +517,7 @@ class AIVMM:
         segment_j_speed_limits = self.get_road_speed_limit(cur_road_id)
         return segment_i_speed_limits / ((segment_j_speed_limits - segment_i_speed_limits) + segment_i_speed_limits)
 
-    def path_weight(self, sample_point_pre, sample_point_cur,
-                    candidate_point_cur, pre_road_id, cur_road_id):
+    def path_weight(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id):
         sa = self.spatial_analysis(sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id)
         ta = self.time_analysis(self.road_graph.road_segment[pre_road_id], self.road_graph.road_segment[cur_road_id])
         rlf = self.road_level_factor(pre_road_id, cur_road_id)
@@ -546,8 +549,8 @@ class AIVMM:
             score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
 
         print("静态评分矩阵: ")
-        print(score_matrix[1:, :])
-        print("-------------end-------------")
+        print(np.around(score_matrix[1:, :], 10))
+        print("-" * 70)
         return matrix_list
 
     def distance_weight_matrix(self, trajectory):
@@ -569,7 +572,7 @@ class AIVMM:
         for m in weight_matrix:
             print(m)
             print()
-        print("-------------end-------------")
+        print("-" * 70)
         return weight_matrix
 
     def weighted_scoring_matrix(self, trajectory, candidate_roads, candidate_points):
@@ -704,12 +707,13 @@ class AIVMM:
         n = len(trajectory)
         final_path = []
         vote = []
-        lop_sequence, f_value_sequence = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        lop_sequence, f_value_sequence = self.find_local_optimal_path_sequence(trajectory, candidate_roads,
+                                                                               candidate_points)
         exit()
         for lop_list in lop_sequence:
             for lop in lop_list:
                 for i in range(n - 1):
-                    self.candidate_graph_obj.edge[f"{i}&{lop[i]}|{i+1}&{lop[i+1]}"].vote += 1
+                    self.candidate_graph_obj.edge[f"{i}&{lop[i]}|{i + 1}&{lop[i + 1]}"].vote += 1
 
         for key, value in self.candidate_graph_obj.edge.items():
             print(key, value.vote)
