@@ -589,11 +589,10 @@ class AIVMM:
         for i in range(len(trajectory)):
             phi_i_list = []
             for j in range(len(trajectory) - 1):
-                if 1 <= j <= i:
+                if 0 <= j <= i:
                     phi_ij = distance_weight_matrix[i][j - 1][j - 1] * static_score_matrix[j]
                 else:
                     phi_ij = distance_weight_matrix[i][j][j] * static_score_matrix[j]
-
                 phi_i_list.append(phi_ij)
 
             phi_list.append(phi_i_list)
@@ -610,10 +609,11 @@ class AIVMM:
 
         # 打印结果
         print("加权评分矩阵：")
-        for matrix in phi_matrix_list:
+        for i, matrix in enumerate(phi_matrix_list):
+            print(f"采样点{i}:")
             print(np.around(matrix, 2))
             print()
-        print("-------------end-------------")
+        print("-"*70)
         return distance_weight_matrix, phi_list
 
     def check_legitimate_path(self, road_a, road_b):
@@ -706,17 +706,30 @@ class AIVMM:
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
         n = len(trajectory)
         final_path = []
-        vote = []
-        lop_sequence, f_value_sequence = self.find_local_optimal_path_sequence(trajectory, candidate_roads,
-                                                                               candidate_points)
-        exit()
-        for lop_list in lop_sequence:
-            for lop in lop_list:
-                for i in range(n - 1):
-                    self.candidate_graph_obj.edge[f"{i}&{lop[i]}|{i + 1}&{lop[i + 1]}"].vote += 1
+        lop_seq, f_value_seq = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
 
-        for key, value in self.candidate_graph_obj.edge.items():
-            print(key, value.vote)
+        for lop in lop_seq:
+            for item in lop:
+                for k in range(n - 1):
+                    try:
+                        self.candidate_graph_obj.edge[f"{k}&{item[k]}|{k + 1}&{item[k + 1]}"].vote += 1
+                    except KeyError:
+                        pass
+
+        vote = {}
+        for i in range(n - 1):
+            vote[i] = None
+
+        for edge in self.candidate_graph_obj.edge.values():
+            index = int(edge.idx.split('|')[0].split('&')[0])
+            if vote[index] is None:
+                vote[index] = edge
+            elif vote[index].vote < edge.vote:
+                vote[index] = edge
+
+        for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda key: key[0]):
+            final_path.append(edge.fro)
+            final_path.append(edge.to) if key == n-2 else None
 
         return final_path
 
