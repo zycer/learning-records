@@ -1,12 +1,13 @@
 import math
 import time
+import itertools
 from collections import OrderedDict
 
 import matplotlib.pyplot as plt
 from scipy import spatial
 from operator import itemgetter
-import itertools
 import numpy as np
+from prettytable import PrettyTable
 
 
 class KNN:
@@ -215,10 +216,11 @@ class KNN:
 
         print(f"候选点匹配用时<{round(time.time() - start_time, 6)}>秒，匹配结果: \n")
         for i, result in enumerate(matched):
-            print(f"采样点{i}: ", end="\t")
-            print("路段ID\t\t\t距离\t\t\t\t\t经度\t\t\t\t\t纬度")
+            print(f"采样点{i}: ")
+            table = PrettyTable(["路段ID", "距离", "经度", "纬度"])
             for res in result:
-                print("\t\t\t%s\t%s\t%s\t%s" % (res[0], res[1], res[2][1], res[2][1]))
+                table.add_row([res[0], res[1], res[2][1], res[2][1]])
+            print(table)
             print()
 
         if is_plot:

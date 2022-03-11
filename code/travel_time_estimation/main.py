@@ -1,16 +1,13 @@
-import copy
 import json
 import math
 import os
-import random
 import numpy as np
-from get_data import GPSData
 from kd_tree import KNN
 from queue import PriorityQueue
-from random import uniform, randint
 from collections import OrderedDict
 from geopy.distance import geodesic
 import matplotlib.pyplot as plt
+from prettytable import PrettyTable
 
 
 class CandidateGraph:
@@ -61,16 +58,17 @@ class CandidateGraph:
                         self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
 
     def show_data(self):
-        print("-" * 70)
+        print("-" * 140)
         print("候选图：")
-        print("边\t\t\t起点\t\t终点\t\t权重")
+        table = PrettyTable(["边", "起点", "终点", "权重"])
         for key, value in self.edge.items():
-            print("%s\t\t%s\t\t%s\t\t%s" % (value.idx, value.fro, value.to, value.weight))
-        print()
-        print("顶点\t\t观测概率")
+            table.add_row([value.idx, value.fro, value.to, value.weight])
+        print("%s\n" % table)
+        table = PrettyTable(["顶点", "观测概率"])
         for key, value in self.vertex.items():
-            print("%s\t\t%s" % (key, value.observation_probability))
-        print("-" * 70)
+            table.add_row([key, value.observation_probability])
+        print("%s\n" % table)
+        print("-" * 140)
 
 
 class RoadNetworkGraph:
@@ -242,17 +240,17 @@ class RoadNetworkGraph:
     def show_graph_data(self, show_vertex=True):
         if show_vertex:
             print("路网数据：")
-            print("路口\t\t\t\t经度\t\t\t\t\t纬度")
+            table = PrettyTable(["路口", "经度", "纬度"])
             for key, vertex in self.vertex.items():
-                print(f"{key}\t{vertex.longitude}\t{vertex.latitude}")
-            print()
+                table.add_row([key, vertex.longitude, vertex.latitude])
+            print("%s\n" % table)
         if not show_vertex:
             print("更新后的路网数据：")
-        print("路段\t\t\t名称\t\t\t起点\t\t\t终点\t\t\t限速\t\t平均车速")
+        table = PrettyTable(["路段", "名称", "起点", "终点", "限速", "平均车速"])
         for key, segment in self.road_segment.items():
-            print(f"{key}\t\t{segment.name}\t\t{segment.fro}\t\t"
-                  f"{segment.to}\t\t{segment.speed_limit}\t\t{segment.average_speed}")
-        print("-" * 70)
+            table.add_row([key, segment.name, segment.fro, segment.to, segment.speed_limit, segment.average_speed])
+        print(table)
+        print("-" * 140)
 
     def shortest_path(self, start, goal):
         """
@@ -555,7 +553,7 @@ class AIVMM:
 
         print("静态评分矩阵: ")
         print(np.around(score_matrix[1:, :], 5))
-        print("-" * 70)
+        print("-" * 140)
         return matrix_list
 
     def distance_weight_matrix(self, trajectory):
@@ -577,7 +575,7 @@ class AIVMM:
         for m in weight_matrix:
             print(m)
             print()
-        print("-" * 70)
+        print("-" * 140)
         return weight_matrix
 
     def weighted_scoring_matrix(self, trajectory, candidate_roads, candidate_points):
@@ -618,7 +616,7 @@ class AIVMM:
             print(f"采样点{i}:")
             print(np.around(matrix, 2))
             print()
-        print("-" * 70)
+        print("-" * 140)
         return distance_weight_matrix, phi_list
 
     def check_legitimate_path(self, road_a, road_b):
@@ -742,9 +740,10 @@ class AIVMM:
             final_path.append(edge.to) if key == n - 2 else None
 
         print("投票结果：")
-        print("边id\t\t票数")
+        table = PrettyTable(["边", "票数"])
         for edge in vote.values():
-            print("%s\t\t%s" % (edge.idx, edge.vote))
+            table.add_row([edge.idx, edge.vote])
+        print(table)
         print("\n最终匹配路径: ", final_path)
 
         print("路径对应的路段id：", end="")
@@ -753,7 +752,7 @@ class AIVMM:
             i, j = map(int, point.split('&'))
             temp.append(candidate_roads[i][j])
         print(temp)
-        print("-" * 70)
+        print("-" * 140)
 
         return final_path
 
@@ -803,7 +802,6 @@ class Main:
             candidate_points.append(point_temp)
 
         final_path = self.aivmm.candidate_edge_voting(trajectory_new, candidate_roads, candidate_points)
-
         speed_dict = {}
         instant_speed = self.calculate_instant_speed(trajectory)
 
@@ -830,9 +828,10 @@ class Main:
         self.road_graph.show_graph_data(show_vertex=False)
 
         print("匹配道路的速度值：")
-        print("路段id\t\t速度列表\t\t平均速度")
+        table = PrettyTable(["路段id", "速度列表", "平均速度"])
         for key, value in speed_dict.items():
-            print(f"{key}\t\t{value}\t\t{np.around(np.mean(value), 2)}")
+            table.add_row([key, value, np.around(np.mean(value), 2)])
+        print(table)
         print()
 
         # 画图
@@ -842,13 +841,15 @@ class Main:
             plot_road(self.road_graph.road_segment[road_id])
 
         plt.scatter([temp[0] for temp in trajectory_new], [temp[1] for temp in trajectory_new], label='sample point')
+        final_path_candi_point = []
+
         for i, points in enumerate(candidate_points):
+            final_path_candi_point.append(candidate_points[i][int(final_path[i].split('&')[1])])
             for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
                 plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
 
-                # plt.scatter([temp[0] for temp in points], [temp[1] for temp in points], label=f"candi_point_{i}")
+        plt.plot([temp[0] for temp in final_path_candi_point], [temp[1] for temp in final_path_candi_point])
         plt.legend(loc=0, ncol=2)
-
         plt.show()
 
 
@@ -859,7 +860,7 @@ def plot_road(road_obj):
 
 def load_trajectory():
     file_path = "data/gps_trajectory"
-    trajectory = dict()
+    trajectory = OrderedDict()
 
     for file in os.listdir(file_path):
         with open(os.path.join(file_path, file), encoding="utf-8") as f:
@@ -870,5 +871,5 @@ def load_trajectory():
 
 if __name__ == "__main__":
     trajectory_list = load_trajectory()
-    trajectory_list.popitem()[1]
+    # trajectory_list.popitem()[1]
     Main().match_candidate(trajectory_list.popitem()[1])
