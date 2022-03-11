@@ -10,6 +10,7 @@ from queue import PriorityQueue
 from random import uniform, randint
 from collections import OrderedDict
 from geopy.distance import geodesic
+import matplotlib.pyplot as plt
 
 
 class CandidateGraph:
@@ -752,7 +753,7 @@ class AIVMM:
             i, j = map(int, point.split('&'))
             temp.append(candidate_roads[i][j])
         print(temp)
-        print("-"*70)
+        print("-" * 70)
 
         return final_path
 
@@ -826,13 +827,34 @@ class Main:
         for road_id, speed_list in speed_dict.items():
             self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
 
+        self.road_graph.show_graph_data(show_vertex=False)
+
         print("匹配道路的速度值：")
         print("路段id\t\t速度列表\t\t平均速度")
         for key, value in speed_dict.items():
             print(f"{key}\t\t{value}\t\t{np.around(np.mean(value), 2)}")
         print()
 
-        self.road_graph.show_graph_data(show_vertex=False)
+        # 画图
+        plt.figure(figsize=(10, 10))
+        for i in range(22):
+            road_id = f"R00{i}" if i < 10 else f"R0{i}"
+            plot_road(self.road_graph.road_segment[road_id])
+
+        plt.scatter([temp[0] for temp in trajectory_new], [temp[1] for temp in trajectory_new], label='sample point')
+        for i, points in enumerate(candidate_points):
+            for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
+                plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
+
+                # plt.scatter([temp[0] for temp in points], [temp[1] for temp in points], label=f"candi_point_{i}")
+        plt.legend(loc=0, ncol=2)
+
+        plt.show()
+
+
+def plot_road(road_obj):
+    plt.plot([temp[0] for temp in road_obj.road_nodes],
+             [temp[1] for temp in road_obj.road_nodes], label=f"{road_obj.idx}")
 
 
 def load_trajectory():
