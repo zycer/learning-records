@@ -238,15 +238,19 @@ class RoadNetworkGraph:
         for key, value in self.adjacency_table.items():
             print(key, value)
 
-    def show_graph_data(self):
-        print("路网数据：")
-        print("路口\t\t\t\t经度\t\t\t\t\t纬度")
-        for key, vertex in self.vertex.items():
-            print(f"{key}\t{vertex.longitude}\t{vertex.latitude}")
-        print()
-        print("路段\t\t\t名称\t\t\t起点\t\t\t终点\t\t\t子路段")
+    def show_graph_data(self, show_vertex=True):
+        if show_vertex:
+            print("路网数据：")
+            print("路口\t\t\t\t经度\t\t\t\t\t纬度")
+            for key, vertex in self.vertex.items():
+                print(f"{key}\t{vertex.longitude}\t{vertex.latitude}")
+            print()
+        if not show_vertex:
+            print("更新后的路网数据：")
+        print("路段\t\t\t名称\t\t\t起点\t\t\t终点\t\t\t限速\t\t平均车速")
         for key, segment in self.road_segment.items():
-            print(f"{key}\t\t{segment.name}\t\t{segment.fro}\t\t{segment.to}\t\t{segment.road_nodes}")
+            print(f"{key}\t\t{segment.name}\t\t{segment.fro}\t\t"
+                  f"{segment.to}\t\t{segment.speed_limit}\t\t{segment.average_speed}")
         print("-" * 70)
 
     def shortest_path(self, start, goal):
@@ -549,7 +553,7 @@ class AIVMM:
             score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
 
         print("静态评分矩阵: ")
-        print(np.around(score_matrix[1:, :], 10))
+        print(np.around(score_matrix[1:, :], 5))
         print("-" * 70)
         return matrix_list
 
@@ -613,7 +617,7 @@ class AIVMM:
             print(f"采样点{i}:")
             print(np.around(matrix, 2))
             print()
-        print("-"*70)
+        print("-" * 70)
         return distance_weight_matrix, phi_list
 
     def check_legitimate_path(self, road_a, road_b):
@@ -708,6 +712,11 @@ class AIVMM:
         final_path = []
         lop_seq, f_value_seq = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
 
+        print("所有候选点的局部最优路径：")
+        for i, lop in enumerate(lop_seq):
+            print(f"采样点{i}: ", lop)
+        print()
+
         for lop in lop_seq:
             for item in lop:
                 for k in range(n - 1):
@@ -727,9 +736,23 @@ class AIVMM:
             elif vote[index].vote < edge.vote:
                 vote[index] = edge
 
-        for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda key: key[0]):
+        for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda temp: temp[0]):
             final_path.append(edge.fro)
-            final_path.append(edge.to) if key == n-2 else None
+            final_path.append(edge.to) if key == n - 2 else None
+
+        print("投票结果：")
+        print("边id\t\t票数")
+        for edge in vote.values():
+            print("%s\t\t%s" % (edge.idx, edge.vote))
+        print("\n最终匹配路径: ", final_path)
+
+        print("路径对应的路段id：", end="")
+        temp = []
+        for point in final_path:
+            i, j = map(int, point.split('&'))
+            temp.append(candidate_roads[i][j])
+        print(temp)
+        print("-"*70)
 
         return final_path
 
@@ -744,8 +767,22 @@ class Main:
         self.road_graph.load_road_data()
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
 
+    @classmethod
+    def calculate_instant_speed(cls, trajectory):
+        instantaneous_velocity = []
+        for i in range(len(trajectory) - 1):
+            lat_0, long_0, timestamp_0 = trajectory[i][1], trajectory[i][0], trajectory[i][-1]
+            lat_1, long_1, timestamp_1 = trajectory[i + 1][1], trajectory[i + 1][0], trajectory[i + 1][-1]
+            distance = geodesic((lat_0, long_0), (lat_1, long_1)).m
+            timestamp = timestamp_1 - timestamp_0
+            speed = distance / timestamp * 3.6
+            instantaneous_velocity.append(speed)
+
+        return instantaneous_velocity
+
     def match_candidate(self, trajectory):
-        matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory)
+        trajectory_new = [tra[:-1] for tra in trajectory]
+        matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory_new)
         candidate_distance = []
         candidate_roads = []
         candidate_points = []
@@ -764,7 +801,38 @@ class Main:
             candidate_roads.append(road_temp)
             candidate_points.append(point_temp)
 
-        self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
+        final_path = self.aivmm.candidate_edge_voting(trajectory_new, candidate_roads, candidate_points)
+
+        speed_dict = {}
+        instant_speed = self.calculate_instant_speed(trajectory)
+
+        for i in range(len(final_path) - 1):
+            sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
+            sample_index_cur, candi_index_cur = map(int, final_path[i + 1].split('&'))
+            pre_road_id = candidate_roads[sample_index_pre][candi_index_pre]
+            cur_road_id = candidate_roads[sample_index_cur][candi_index_cur]
+
+            if pre_road_id not in speed_dict.keys():
+                speed_dict[pre_road_id] = []
+            if cur_road_id not in speed_dict.keys():
+                speed_dict[cur_road_id] = []
+
+            if pre_road_id == cur_road_id:
+                speed_dict[pre_road_id].append(instant_speed[i])
+            else:
+                speed_dict[cur_road_id].append(instant_speed[i])
+                speed_dict[pre_road_id].append(instant_speed[i])
+
+        for road_id, speed_list in speed_dict.items():
+            self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
+
+        print("匹配道路的速度值：")
+        print("路段id\t\t速度列表\t\t平均速度")
+        for key, value in speed_dict.items():
+            print(f"{key}\t\t{value}\t\t{np.around(np.mean(value), 2)}")
+        print()
+
+        self.road_graph.show_graph_data(show_vertex=False)
 
 
 def load_trajectory():
