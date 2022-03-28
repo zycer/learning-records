@@ -46,3 +46,7 @@ class GPSData:
                         f.write(values)
             except Exception as e:
                 print(e)
+
+
+g = GPSData()
+print(g.get_data(1))
