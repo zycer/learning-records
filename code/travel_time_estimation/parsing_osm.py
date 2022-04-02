@@ -2,7 +2,6 @@ import os
 import osm2gmns as og
 import xml.etree.ElementTree as ET
 
-
 speed_limit = {
     "steps": 5,
     "living_street": 10,
@@ -35,22 +34,26 @@ def trans_osm2graph(osm_path, out_path):
     og.outputNetToCSV(net, output_folder=out_path)
 
 
-def format_link_data(link_data):
-    pass
+def format_link_data(link_data, max_speed_list):
+    titles = link_data[0].strip() + ",max_speed"
+    for link in link_data[1:]:
+        link_attr = link.split(",")
+        geometry = link_attr[12][13: -2]
+        print(geometry)
 
 
 
 def check_graph_data(graph_path):
     link_file = os.path.join(graph_path, "link.csv")
     node_file = os.path.join(graph_path, "node.csv")
-    new_link_data = []
 
     with open(link_file, "r", encoding="utf-8") as f:
         tree = ET.parse("data/osm_data/shenzhen.osm")
         root = tree.getroot()
-        link_data = [link.strip() for link in f.readlines()][1:]
+        link_data = [link.strip() for link in f.readlines()]
+        max_speed_list = []
 
-        for link in link_data:
+        for link in link_data[1:]:
             way_id = link[2]
             way = root.find(f"./way[@id={way_id}]")
             if way is not None:
@@ -67,24 +70,15 @@ def check_graph_data(graph_path):
             else:
                 raise KeyError
 
+            max_speed_list.append(max_speed)
+
+        format_link_data(link_data, max_speed_list)
 
 
+# check_graph_data("data/osm_data")
 
+a = '"LINESTRING (114.1079143 22.5415774, 114.1072354 22.5414963)"'
 
-
-
-
-
-
-    way_types = set()
-
-    ways = root.findall("./way[@id]")
-    for way in ways:
-        node = way.find("./tag[@k='highway']")
-        if node is not None:
-            way_types.add(node.attrib['v'])
-
-    for i, t in enumerate(way_types):
-        print(i, t)
-
-check_graph_data("data/osm_data")
+geometry = a[12][13: -2]
+road_nodes = [[j[0], j[1]]for i in geometry.split(",") for j in i.split(" ")]
+print(road_nodes)
