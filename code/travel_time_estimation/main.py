@@ -191,17 +191,20 @@ class RoadNetworkGraph:
                 continue
 
             for road in road_data:
-                road_attr = road.split("|")
-                road_attr_pre = road_attr[0].strip().split(",")
-                road_nodes = json.loads(road_attr[1])
+                road_attr = []
+                pre, road_nodes_str, behind = road.split("|")
+                road_attr.extend(pre.strip().split(","))
+                road_attr.append(road_nodes_str)
+                road_attr.extend(behind.strip().split(","))
+                road_nodes = json.loads(road_nodes_str)
 
-                road_id = road_attr_pre[0].strip()
-                from_vertex = road_attr_pre[1].strip()
-                to_vertex = road_attr_pre[2].strip()
-                segment_name = road_attr_pre[3].strip()
-                mileage = float(road_attr_pre[4].strip())
-                speed_limit = float(road_attr_pre[5])
-                average_speed = float(road_attr_pre[6].strip()) if road_attr_pre[5].strip() != '' else -1
+                road_id = road_attr[1].strip()
+                from_vertex = road_attr[3].strip()
+                to_vertex = road_attr[4].strip()
+                segment_name = road_attr[0].strip()
+                mileage = float(road_attr[6].strip())
+                speed_limit = float(road_attr[-2])
+                average_speed = float(road_attr[-1].strip()) if road_attr[-1].strip() != '' else -1
                 self.matrix.append([road_id, from_vertex, to_vertex,
                                     segment_name, mileage, speed_limit, average_speed, road_nodes])
 
