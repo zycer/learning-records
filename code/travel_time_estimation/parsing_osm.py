@@ -114,4 +114,6 @@ def check_graph_data(graph_path):
         format_vertex_data(node_file, graph_path)
 
 
-check_graph_data("data/osm_data/xiao")
+if __name__ == "__main__":
+    trans_osm2graph("/data/osm_data/shenzhen.osm", "/data/osm_data")
+    check_graph_data("data/osm_data")
