@@ -8,6 +8,7 @@ from collections import OrderedDict
 from geopy.distance import geodesic
 import matplotlib.pyplot as plt
 from prettytable import PrettyTable
+from constants import ROAD_MAX_SPEED as RMS
 
 
 class CandidateGraph:
@@ -73,7 +74,8 @@ class CandidateGraph:
 
 class RoadNetworkGraph:
     class Vertex:
-        def __init__(self, idx, longitude=None, latitude=None):
+        def __init__(self, idx, name, longitude=None, latitude=None):
+            self.name = name
             self.idx = idx
             self.come = 0
             self.out = 0
@@ -175,12 +177,19 @@ class RoadNetworkGraph:
                 print(e)
                 continue
 
-            for vertex in vertex_data:
+            for i, vertex in enumerate(vertex_data):
                 vertex_attr = vertex.split(",")
-                vertex_id = vertex_attr[0]
-                longitude = float(vertex_attr[1])
-                latitude = float(vertex_attr[2])
-                self.vertex[vertex_id] = self.Vertex(vertex_id, longitude, latitude)
+                vertex_name = vertex_attr[0]
+                vertex_id = vertex_attr[1]
+                longitude = float(vertex_attr[9])
+                latitude = float(vertex_attr[10])
+                self.vertex[vertex_id] = self.Vertex(vertex_id, vertex_name, longitude, latitude)
+
+                # vertex_attr = vertex.split(",")
+                # vertex_id = vertex_attr[0]
+                # longitude = float(vertex_attr[1])
+                # latitude = float(vertex_attr[2])
+                # self.vertex[vertex_id] = self.Vertex(vertex_id, "lala", longitude, latitude)
 
         for file in self.road_data_files:
             try:
@@ -192,25 +201,44 @@ class RoadNetworkGraph:
 
             for road in road_data:
                 road_attr = []
-                pre, road_nodes_str, behind = road.split("|")
-                road_attr.extend(pre.strip().split(","))
-                road_attr.append(road_nodes_str)
-                road_attr.extend(behind.strip().split(","))
-                road_nodes = json.loads(road_nodes_str)
+                pre, mid, behind = road.split('"')
+                road_attr.extend(pre.strip().split(",")[:-1])
+                road_nodes = []
+                for points_str in mid[12: -1].split(","):
+                    longitude, latitude = points_str.strip().split(" ")
+                    road_nodes.append([float(longitude), float(latitude)])
+                road_attr.extend(behind.strip().split(",")[1:])
 
+                road_name = road_attr[0].strip()
                 road_id = road_attr[1].strip()
                 from_vertex = road_attr[3].strip()
                 to_vertex = road_attr[4].strip()
-                segment_name = road_attr[0].strip()
                 mileage = float(road_attr[6].strip())
-                speed_limit = float(road_attr[-2])
-                average_speed = float(road_attr[-1].strip()) if road_attr[-1].strip() != '' else -1
+                speed_limit = RMS.get(road_attr[10], RMS["other"])
+                average_speed = float(road_attr[17]) if len(road_attr) >= 18 else speed_limit
                 self.matrix.append([road_id, from_vertex, to_vertex,
-                                    segment_name, mileage, speed_limit, average_speed, road_nodes])
+                                    road_name, mileage, speed_limit, average_speed, road_nodes])
+
+                # road_attr = []
+                # pre, behind = road.split("|")
+                # road_attr.extend(pre.strip().split(",")[:-1])
+                # road_attr.append(behind)
+                # road_attr.extend(behind.strip().split(","))
+                # road_nodes = json.loads(behind)
+                #
+                # road_id = road_attr[0].strip()
+                # from_vertex = road_attr[1].strip()
+                # to_vertex = road_attr[2].strip()
+                # segment_name = road_attr[3].strip()
+                # mileage = float(road_attr[4].strip())
+                # speed_limit = float(road_attr[5])
+                # average_speed = float(road_attr[6])
+                # self.matrix.append([road_id, from_vertex, to_vertex,
+                #                     segment_name, mileage, speed_limit, average_speed, road_nodes])
 
         # self.create_graph_adjacency_matrix()
         self.create_graph_adjacency_table()
-        self.show_graph_data()
+        # self.show_graph_data()
 
     def neighbors(self, vertex_id):
         """
@@ -520,7 +548,9 @@ class AIVMM:
         """
 
         segment_i_speed_limits = self.get_road_speed_limit(pre_road_id)
+        print(segment_i_speed_limits)
         segment_j_speed_limits = self.get_road_speed_limit(cur_road_id)
+        print(segment_j_speed_limits)
         return segment_i_speed_limits / ((segment_j_speed_limits - segment_i_speed_limits) + segment_i_speed_limits)
 
     def path_weight(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id):
@@ -828,7 +858,7 @@ class Main:
         for road_id, speed_list in speed_dict.items():
             self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
 
-        self.road_graph.show_graph_data(show_vertex=False)
+        # self.road_graph.show_graph_data(show_vertex=False)
 
         print("匹配道路的速度值：")
         table = PrettyTable(["路段id", "速度列表", "平均速度"])
@@ -839,9 +869,10 @@ class Main:
 
         # 画图
         plt.figure(figsize=(10, 10))
-        for i in range(22):
-            road_id = f"R00{i}" if i < 10 else f"R0{i}"
-            plot_road(self.road_graph.road_segment[road_id])
+        index_min = 0 if int(list(speed_dict.keys())[0]) - 1000 <= 0 else int(list(speed_dict.keys())[0]) - 1000
+        index_max = int(list(speed_dict.keys())[0]) + 1000
+        for i in range(index_min, index_max):
+            plot_road(self.road_graph.road_segment[str(i)])
 
         plt.scatter([temp[0] for temp in trajectory_new], [temp[1] for temp in trajectory_new], label='sample point')
         final_path_candi_point = []
