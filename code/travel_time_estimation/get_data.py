@@ -37,7 +37,7 @@ class GPSData:
             try:
                 res = requests.get(self.url, params=self.params)
                 data = res.json()
-                with open("shenzhen0.csv", "a+", encoding="utf-8") as f:
+                with open("data/gps_trajectory/shenzhen3.csv", "a+", encoding="utf-8") as f:
                     if not flag:
                         titles = ','.join(data["data"][0].keys()) + "\n"
                         f.write(titles)
@@ -51,4 +51,5 @@ class GPSData:
 
 
 g = GPSData()
-print(g.get_data(1))
+# print(g.get_data(1))
+g.save_all_data()
