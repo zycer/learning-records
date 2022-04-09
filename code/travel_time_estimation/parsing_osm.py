@@ -38,6 +38,10 @@ def format_link_data(link_data, max_speed_list, out_path):
     titles = link_data[0].strip() + ",max_speed,average_speed\n"
     new_link_data = []
     points = []
+
+    with open(os.path.join(out_path, "new_link.csv"), "w", encoding="utf-8") as f:
+        f.write(titles)
+
     for i, link in enumerate(link_data[1:]):
         link_attr = []
         link_pre, points_str, link_behind = link.split('"')
@@ -56,17 +60,26 @@ def format_link_data(link_data, max_speed_list, out_path):
 
         link_attr.append(max_speed_list[i])
         link_attr.append(max_speed_list[i])
-        print(",".join(link_attr))
+
+        link_attr = [str(i) for i in link_attr]
         new_link_data.append(",".join(link_attr))
 
-    with open(os.path.join(out_path, "new_link.csv"), "w", encoding="utf-8") as f:
-        f.write(titles)
+        if len(new_link_data) > 100:
+            with open(os.path.join(out_path, "new_link.csv"), "a+", encoding="utf-8") as f:
+                f.write("\n".join(new_link_data))
+                f.write("\n")
+            print("写入link，数据量100")
+            new_link_data.clear()
+
+    with open(os.path.join(out_path, "new_link.csv"), "a+", encoding="utf-8") as f:
         f.write("\n".join(new_link_data))
 
 
 def format_vertex_data(node_file, out_path):
     with open(node_file, "r", encoding="utf-8") as f:
         titles = "vertex_id,longitude,latitude\n"
+        with open(os.path.join(out_path, "new_node.csv"), "w", encoding="utf-8") as ff:
+            ff.write(titles)
         vertex_data = []
         node_data = [link.strip() for link in f.readlines()]
         for node in node_data[1:]:
@@ -76,9 +89,16 @@ def format_vertex_data(node_file, out_path):
             latitude = node_attr[10]
             vertex_data.append(f"{node_id},{longitude},{latitude}")
 
-        with open(os.path.join(out_path, "new_node.csv"), "w", encoding="utf-8") as ff:
-            ff.write(titles)
+            if len(vertex_data) > 100:
+                with open(os.path.join(out_path, "new_node.csv"), "a+", encoding="utf-8") as ff:
+                    ff.write("\n".join(vertex_data))
+                    ff.write("\n")
+                print("写入vertex，数据量100")
+                vertex_data.clear()
+
+        with open(os.path.join(out_path, "new_node.csv"), "a+", encoding="utf-8") as ff:
             ff.write("\n".join(vertex_data))
+            ff.write("\n")
 
 
 def check_graph_data(graph_path):
@@ -86,34 +106,39 @@ def check_graph_data(graph_path):
     node_file = os.path.join(graph_path, "node.csv")
 
     with open(link_file, "r", encoding="utf-8") as f:
-        tree = ET.parse("data/osm_data/map.osm")
-        root = tree.getroot()
+        # tree = ET.parse(os.path.join(graph_path, "shenzhen.osm"))
+        # root = tree.getroot()
         link_data = [link.strip() for link in f.readlines()]
         max_speed_list = []
 
         for link in link_data[1:]:
             link_attr = [i.strip() for i in link.split(",")]
-            way_id = link_attr[2]
-            way = root.find(f"./way[@id='{way_id}']")
-            if way is not None:
-                tag = way.find("./tag[@maxspeed]")
-                if tag is not None:
-                    max_speed = int(tag.attrib["v"])
-                else:
-                    tag = way.find("./tag[@highway]")
-                    if tag is not None:
-                        way_type = tag.attrib['v']
-                        max_speed = speed_limit[way_type] if way_type in speed_limit.keys() else speed_limit["other"]
-                    else:
-                        max_speed = speed_limit["other"]
+            # way_id = link_attr[2]
+            # way = root.find(f"./way[@id='{way_id}']")
+            # if way is not None:
+            #     tag = way.find("./tag[@maxspeed]")
+            #     if tag is not None:
+            #         max_speed = tag.attrib["v"]
+            #         print("此道路存在限速")
+            #     else:
+            #         tag = way.find("./tag[@highway]")
+            #         if tag is not None:
+            #             way_type = tag.attrib['v']
+            #             max_speed = speed_limit[way_type] if way_type in speed_limit.keys() else speed_limit["other"]
+            #         else:
+            #             max_speed = speed_limit["other"]
+            # else:
+            #     max_speed = -1
+            if link_attr[10] in speed_limit.keys():
+                max_speed = speed_limit[link_attr[10]]
             else:
-                max_speed = -1
+                max_speed = speed_limit["other"]
 
             max_speed_list.append(max_speed)
-        format_link_data(link_data, max_speed_list, graph_path)
-        format_vertex_data(node_file, graph_path)
+        format_link_data(link_data, max_speed_list, "G:\data")
+        format_vertex_data(node_file, "G:\data")
 
 
 if __name__ == "__main__":
-    trans_osm2graph("/data/osm_data/shenzhen.osm", "/data/osm_data")
+    # # trans_osm2graph("data/osm_data/shenzhen.osm", "data/osm_data")
     check_graph_data("data/osm_data")
