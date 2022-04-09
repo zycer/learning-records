@@ -548,9 +548,7 @@ class AIVMM:
         """
 
         segment_i_speed_limits = self.get_road_speed_limit(pre_road_id)
-        print(segment_i_speed_limits)
         segment_j_speed_limits = self.get_road_speed_limit(cur_road_id)
-        print(segment_j_speed_limits)
         return segment_i_speed_limits / ((segment_j_speed_limits - segment_i_speed_limits) + segment_i_speed_limits)
 
     def path_weight(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_id, cur_road_id):
