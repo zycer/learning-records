@@ -20,7 +20,9 @@ class GPSData:
     def get_data(self, current_page):
         self.params["page"] = current_page
         result = requests.get(self.url, params=self.params)
-        return result.json()
+        with open("data/gps_trajectory/trustshenzhen.json", "w", encoding="utf-8") as f:
+            f.write(str(result.json()))
+        return result
 
     def save_all_data(self):
         flag = False
