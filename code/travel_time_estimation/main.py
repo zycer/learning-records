@@ -2,6 +2,7 @@ import json
 import math
 import os
 import numpy as np
+import pandas as pd
 from kd_tree import KNN
 from queue import PriorityQueue
 from collections import OrderedDict
@@ -794,6 +795,7 @@ class Main:
         self.sigma = sigma
         self.beta = beta
 
+        self.trajectory_data = dict()
         self.road_graph = RoadNetworkGraph()
         self.road_graph.load_road_data()
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
@@ -812,6 +814,7 @@ class Main:
         return instantaneous_velocity
 
     def match_candidate(self, trajectory):
+        print(trajectory)
         trajectory_new = [tra[:-1] for tra in trajectory]
         matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory_new)
         candidate_distance = []
@@ -884,6 +887,24 @@ class Main:
         plt.legend(loc=0, ncol=2)
         plt.show()
 
+    def load_trajectory(self):
+        file_path = "data/gps_trajectory"
+        self.trajectory_data.clear()
+
+        for file_name in os.listdir(file_path):
+            tra_data = pd.read_csv(os.path.join(file_path, file_name), sep=",", encoding="utf-8", iterator=True)
+            self.trajectory_data[file_name] = tra_data
+
+    def main(self):
+        self.load_trajectory()
+        for tra_data in self.trajectory_data.values():
+            while True:
+                try:
+                    temp = tra_data.get_chunk(1)
+                    print(temp)
+                except StopIteration:
+                    break
+
 
 def plot_road(road_obj):
     plt.plot([temp[0] for temp in road_obj.road_nodes],
@@ -895,13 +916,16 @@ def load_trajectory():
     trajectory = OrderedDict()
 
     for file in os.listdir(file_path):
-        with open(os.path.join(file_path, file), encoding="utf-8") as f:
+        with open(os.path.join(file_path, "shenzhen0.csv"), encoding="utf-8") as f:
             trajectory[file] = [list(map(float, point.strip().split(",")[1:])) for point in f.readlines()[1:]]
 
     return trajectory
 
 
 if __name__ == "__main__":
-    trajectory_list = load_trajectory()
-    # trajectory_list.popitem()[1]
-    Main().match_candidate(trajectory_list.popitem()[1])
+    # trajectory_dict = load_trajectory()
+    # # print(trajectory_dict.popitem()[1])
+    # Main().match_candidate(trajectory_dict.popitem()[1])
+    m = Main()
+    m.load_trajectory()
+    m.main()

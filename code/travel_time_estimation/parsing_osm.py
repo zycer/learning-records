@@ -140,5 +140,5 @@ def check_graph_data(graph_path):
 
 
 if __name__ == "__main__":
-    # # trans_osm2graph("data/osm_data/shenzhen.osm", "data/osm_data")
-    check_graph_data("data/osm_data")
+    trans_osm2graph("data/osm_data/Porto.osm", "data/osm_data")
+    # check_graph_data("data/osm_data")
