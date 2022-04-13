@@ -171,71 +171,56 @@ class RoadNetworkGraph:
         """
 
         for vertex_file in self.vertex_data_files:
-            try:
-                with open(os.path.join(self.vertex_path, vertex_file), encoding="utf-8") as f:
-                    vertex_data = f.readlines()[1:]
-            except Exception as e:
-                print(e)
-                continue
+            vertex_data = pd.read_csv(os.path.join(self.vertex_path, vertex_file), encoding="utf-8", sep=",")
+            latitudes = vertex_data["x_coord"].values
+            longitudes = vertex_data["y_coord"].values
+            vertex_names = vertex_data["name"].values
+            vertex_ids = vertex_data["node_id"].values
 
-            for i, vertex in enumerate(vertex_data):
-                vertex_attr = vertex.split(",")
-                vertex_name = vertex_attr[0]
-                vertex_id = vertex_attr[1]
-                longitude = float(vertex_attr[9])
-                latitude = float(vertex_attr[10])
+            for vertex_one in zip(vertex_ids, vertex_names, longitudes, latitudes):
+                vertex_id, vertex_name, longitude, latitude = vertex_one
                 self.vertex[vertex_id] = self.Vertex(vertex_id, vertex_name, longitude, latitude)
 
-                # vertex_attr = vertex.split(",")
-                # vertex_id = vertex_attr[0]
-                # longitude = float(vertex_attr[1])
-                # latitude = float(vertex_attr[2])
-                # self.vertex[vertex_id] = self.Vertex(vertex_id, "lala", longitude, latitude)
+        # for vertex_file in self.vertex_data_files:
+        #     try:
+        #         with open(os.path.join(self.vertex_path, vertex_file), encoding="utf-8") as f:
+        #             vertex_data = f.readlines()[1:]
+        #     except Exception as e:
+        #         print(e)
+        #         continue
+        #
+        #     for i, vertex in enumerate(vertex_data):
+        #         vertex_attr = vertex.split(",")
+        #         vertex_name = vertex_attr[0]
+        #         vertex_id = vertex_attr[1]
+        #         longitude = float(vertex_attr[9])
+        #         latitude = float(vertex_attr[10])
+        #         self.vertex[vertex_id] = self.Vertex(vertex_id, vertex_name, longitude, latitude)
+        #         print(vertex_id)
 
-        for file in self.road_data_files:
-            try:
-                with open(os.path.join(self.road_path, file), encoding="utf-8") as f:
-                    road_data = f.readlines()[1:]
-            except Exception as e:
-                print(e)
-                continue
+        for road_file in self.road_data_files:
+            road_data = pd.read_csv(os.path.join(self.road_path, road_file), encoding="utf-8", sep=",")
+            road_names = road_data["name"].values
+            road_ids = road_data["link_id"].values
+            from_vertexes = road_data["from_node_id"].values
+            to_vertexes = road_data["to_node_id"].values
+            geometries = np.array(list(map(lambda x: x[12:-1], road_data["geometry"].values)))
+            mileages = road_data["length"].values
+            speed_limits = np.array(
+                list(map(lambda x: RMS.get(x, RMS["other"]), road_data["link_type_name"].values)))
+            average_speeds = road_data["average_speed"].values
 
-            for road in road_data:
-                road_attr = []
-                pre, mid, behind = road.split('"')
-                road_attr.extend(pre.strip().split(",")[:-1])
+            for road_one in zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, speed_limits,
+                                average_speeds, geometries):
+                road_id, fro, to, name, length, speed_limit, average, geo = road_one
+                average_speed = speed_limit if np.isnan(average) else average
                 road_nodes = []
-                for points_str in mid[12: -1].split(","):
+
+                for points_str in geo.split(","):
                     longitude, latitude = points_str.strip().split(" ")
                     road_nodes.append([float(longitude), float(latitude)])
-                road_attr.extend(behind.strip().split(",")[1:])
 
-                road_name = road_attr[0].strip()
-                road_id = road_attr[1].strip()
-                from_vertex = road_attr[3].strip()
-                to_vertex = road_attr[4].strip()
-                mileage = float(road_attr[6].strip())
-                speed_limit = RMS.get(road_attr[10], RMS["other"])
-                average_speed = float(road_attr[17]) if len(road_attr) >= 18 else speed_limit
-                self.matrix.append([road_id, from_vertex, to_vertex,
-                                    road_name, mileage, speed_limit, average_speed, road_nodes])
-
-                # road_attr = []
-                # pre, behind = road.split("|")
-                # road_attr.extend(pre.strip().split(",")[:-1])
-                # road_attr.append(behind)
-                # road_attr.extend(behind.strip().split(","))
-                # road_nodes = json.loads(behind)
-                #
-                # road_id = road_attr[0].strip()
-                # from_vertex = road_attr[1].strip()
-                # to_vertex = road_attr[2].strip()
-                # segment_name = road_attr[3].strip()
-                # mileage = float(road_attr[4].strip())
-                # speed_limit = float(road_attr[5])
-                # average_speed = float(road_attr[6])
-                # self.matrix.append([road_id, from_vertex, to_vertex,
-                #                     segment_name, mileage, speed_limit, average_speed, road_nodes])
+                self.matrix.append([road_id, fro, to, name, length, speed_limit, average_speed, road_nodes])
 
         # self.create_graph_adjacency_matrix()
         self.create_graph_adjacency_table()
@@ -801,22 +786,20 @@ class Main:
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
 
     @classmethod
-    def calculate_instant_speed(cls, trajectory):
+    def calculate_instant_speed(cls, trajectory, rate):
         instantaneous_velocity = []
         for i in range(len(trajectory) - 1):
-            lat_0, long_0, timestamp_0 = trajectory[i][1], trajectory[i][0], trajectory[i][-1]
-            lat_1, long_1, timestamp_1 = trajectory[i + 1][1], trajectory[i + 1][0], trajectory[i + 1][-1]
+            lat_0, long_0 = trajectory[i][1], trajectory[i][0]
+            lat_1, long_1 = trajectory[i + 1][1], trajectory[i + 1][0]
             distance = geodesic((lat_0, long_0), (lat_1, long_1)).m
-            timestamp = timestamp_1 - timestamp_0
-            speed = distance / timestamp * 3.6
+            speed = distance / rate * 3.6
             instantaneous_velocity.append(speed)
 
         return instantaneous_velocity
 
-    def match_candidate(self, trajectory):
+    def match_candidate(self, trajectory, timestamp, rate=15):
         print(trajectory)
-        trajectory_new = [tra[:-1] for tra in trajectory]
-        matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory_new)
+        matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory)
         candidate_distance = []
         candidate_roads = []
         candidate_points = []
@@ -835,9 +818,9 @@ class Main:
             candidate_roads.append(road_temp)
             candidate_points.append(point_temp)
 
-        final_path = self.aivmm.candidate_edge_voting(trajectory_new, candidate_roads, candidate_points)
+        final_path = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
         speed_dict = {}
-        instant_speed = self.calculate_instant_speed(trajectory)
+        instant_speed = self.calculate_instant_speed(trajectory, rate)
 
         for i in range(len(final_path) - 1):
             sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
@@ -862,9 +845,9 @@ class Main:
         # self.road_graph.show_graph_data(show_vertex=False)
 
         print("匹配道路的速度值：")
-        table = PrettyTable(["路段id", "速度列表", "平均速度"])
+        table = PrettyTable(["路段id", "时刻", "速度列表", "平均速度"])
         for key, value in speed_dict.items():
-            table.add_row([key, value, np.around(np.mean(value), 2)])
+            table.add_row([key, timestamp, value, np.around(np.mean(value), 2)])
         print(table)
         print()
 
@@ -875,7 +858,7 @@ class Main:
         for i in range(index_min, index_max):
             plot_road(self.road_graph.road_segment[str(i)])
 
-        plt.scatter([temp[0] for temp in trajectory_new], [temp[1] for temp in trajectory_new], label='sample point')
+        plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], label='sample point')
         final_path_candi_point = []
 
         for i, points in enumerate(candidate_points):
@@ -898,12 +881,24 @@ class Main:
     def main(self):
         self.load_trajectory()
         for tra_data in self.trajectory_data.values():
-            while True:
-                try:
-                    temp = tra_data.get_chunk(1)
-                    print(temp)
-                except StopIteration:
-                    break
+            try:
+                while True:
+                    tra_one = tra_data.get_chunk(1)
+                    trip_id = tra_one["TRIP_ID"].values[0]
+                    timestamp = tra_one["TIMESTAMP"].values[0]
+                    try:
+                        polyline = json.loads(tra_one["POLYLINE"].values[0])
+                        if len(polyline) < 2:
+                            raise json.decoder.JSONDecodeError
+
+                    except json.decoder.JSONDecodeError:
+                        print(f"{trip_id}: data type error")
+                        continue
+
+                    self.match_candidate(polyline, timestamp)
+
+            except StopIteration:
+                break
 
 
 def plot_road(road_obj):
@@ -927,5 +922,5 @@ if __name__ == "__main__":
     # # print(trajectory_dict.popitem()[1])
     # Main().match_candidate(trajectory_dict.popitem()[1])
     m = Main()
-    m.load_trajectory()
+    print("shujudfdfdf")
     m.main()
