@@ -9,6 +9,7 @@ from collections import OrderedDict
 from geopy.distance import geodesic
 import matplotlib.pyplot as plt
 from prettytable import PrettyTable
+from db_manager import DBManager
 from constants import ROAD_MAX_SPEED as RMS
 
 
@@ -105,6 +106,7 @@ class RoadNetworkGraph:
         self.vertex_path = "data/vertex_data"
         self.road_data_files = os.listdir(self.road_path)
         self.vertex_data_files = os.listdir(self.vertex_path)
+        self.db_handler = DBManager()
 
     def save_road_network_data(self):
         """
@@ -181,23 +183,6 @@ class RoadNetworkGraph:
                 vertex_id, vertex_name, longitude, latitude = vertex_one
                 self.vertex[vertex_id] = self.Vertex(vertex_id, vertex_name, longitude, latitude)
 
-        # for vertex_file in self.vertex_data_files:
-        #     try:
-        #         with open(os.path.join(self.vertex_path, vertex_file), encoding="utf-8") as f:
-        #             vertex_data = f.readlines()[1:]
-        #     except Exception as e:
-        #         print(e)
-        #         continue
-        #
-        #     for i, vertex in enumerate(vertex_data):
-        #         vertex_attr = vertex.split(",")
-        #         vertex_name = vertex_attr[0]
-        #         vertex_id = vertex_attr[1]
-        #         longitude = float(vertex_attr[9])
-        #         latitude = float(vertex_attr[10])
-        #         self.vertex[vertex_id] = self.Vertex(vertex_id, vertex_name, longitude, latitude)
-        #         print(vertex_id)
-
         for road_file in self.road_data_files:
             road_data = pd.read_csv(os.path.join(self.road_path, road_file), encoding="utf-8", sep=",")
             road_names = road_data["name"].values
@@ -208,15 +193,15 @@ class RoadNetworkGraph:
             mileages = road_data["length"].values
             speed_limits = np.array(
                 list(map(lambda x: RMS.get(x, RMS["other"]), road_data["link_type_name"].values)))
-            average_speeds = road_data["average_speed"].values
 
-            for road_one in zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, speed_limits,
-                                average_speeds, geometries):
-                road_id, fro, to, name, length, speed_limit, average, geo = road_one
-                average_speed = speed_limit if np.isnan(average) else average
+            for road_one in zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, speed_limits, geometries):
+                road_id, fro, to, name, length, speed_limit, geometry = road_one
+
+                res = self.db_handler.exec_sql(f"SELECT average_speed FROM history_road_data WHERE road_id={road_id}")
+                average_speed = res[0]["average_speed"] if res else speed_limit
                 road_nodes = []
 
-                for points_str in geo.split(","):
+                for points_str in geometry.split(","):
                     longitude, latitude = points_str.strip().split(" ")
                     road_nodes.append([float(longitude), float(latitude)])
 
@@ -783,6 +768,7 @@ class Main:
         self.trajectory_data = dict()
         self.road_graph = RoadNetworkGraph()
         self.road_graph.load_road_data()
+        self.db_handler = DBManager()
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
 
     @classmethod
@@ -847,28 +833,43 @@ class Main:
         print("匹配道路的速度值：")
         table = PrettyTable(["路段id", "时刻", "速度列表", "平均速度"])
         for key, value in speed_dict.items():
-            table.add_row([key, timestamp, value, np.around(np.mean(value), 2)])
+            speed = np.around(np.mean(value), 2).item()
+            timestamp = timestamp.item() if isinstance(timestamp, np.int64) else timestamp
+            key = key.item()
+            road_obj = self.db_handler.exec_sql(f"SELECT * FROM history_road_data WHERE road_id='{road_id}'")
+            if road_obj:
+                history = json.loads(road_obj[0]["history"])
+                history[timestamp] = speed
+                average_speed = sum(history.values()) / len(history)
+                self.db_handler.exec_sql(
+                    f"UPDATE history_road_data set history='{json.dumps(history)}',average_speed={average_speed} WHERE road_id='{key}'")
+            else:
+                history = {timestamp: speed}
+                print("~~~~~~~~~~")
+                print(history)
+                self.db_handler.exec_sql(f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed})")
+            table.add_row([key, timestamp, value, speed])
         print(table)
         print()
 
         # 画图
-        plt.figure(figsize=(10, 10))
-        index_min = 0 if int(list(speed_dict.keys())[0]) - 1000 <= 0 else int(list(speed_dict.keys())[0]) - 1000
-        index_max = int(list(speed_dict.keys())[0]) + 1000
-        for i in range(index_min, index_max):
-            plot_road(self.road_graph.road_segment[str(i)])
-
-        plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], label='sample point')
-        final_path_candi_point = []
-
-        for i, points in enumerate(candidate_points):
-            final_path_candi_point.append(candidate_points[i][int(final_path[i].split('&')[1])])
-            for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
-                plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
-
-        plt.plot([temp[0] for temp in final_path_candi_point], [temp[1] for temp in final_path_candi_point])
-        plt.legend(loc=0, ncol=2)
-        plt.show()
+        # plt.figure(figsize=(10, 10))
+        # index_min = 0 if int(list(speed_dict.keys())[0]) - 1000 <= 0 else int(list(speed_dict.keys())[0]) - 1000
+        # index_max = int(list(speed_dict.keys())[0]) + 1000
+        # for i in range(index_min, index_max):
+        #     plot_road(self.road_graph.road_segment[i])
+        #
+        # plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], label='sample point')
+        # final_path_candi_point = []
+        #
+        # for i, points in enumerate(candidate_points):
+        #     final_path_candi_point.append(candidate_points[i][int(final_path[i].split('&')[1])])
+        #     for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
+        #         plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
+        #
+        # plt.plot([temp[0] for temp in final_path_candi_point], [temp[1] for temp in final_path_candi_point])
+        # plt.legend(loc=0, ncol=2)
+        # plt.show()
 
     def load_trajectory(self):
         file_path = "data/gps_trajectory"
@@ -898,6 +899,7 @@ class Main:
                     self.match_candidate(polyline, timestamp)
 
             except StopIteration:
+                print("匹配结束")
                 break
 
 
@@ -922,5 +924,4 @@ if __name__ == "__main__":
     # # print(trajectory_dict.popitem()[1])
     # Main().match_candidate(trajectory_dict.popitem()[1])
     m = Main()
-    print("shujudfdfdf")
     m.main()
