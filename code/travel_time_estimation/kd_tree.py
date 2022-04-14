@@ -77,14 +77,18 @@ class KNN:
             a = second_point[1] - first_point[1]
             b = first_point[0] - second_point[0]
             c = second_point[0] * first_point[1] - first_point[0] * second_point[1]
-            k = -1 * a / b
-            b = -1 * c / b
+            try:
+                k = -1 * a / b
+                b = -1 * c / b
+            except ZeroDivisionError:
+                return None, None, None
 
         else:
             point = kwargs["point"]
             k = kwargs["k"]
+            # 垂直于x轴
             if k is None:
-                return None
+                return None, None, None
             else:
                 b = point[1] - k * point[0]
 
@@ -144,13 +148,26 @@ class KNN:
     def generate_candidate_point(self, segment, point):
         point_mercator: list = self.wgs842mercator(point)
         segment_mercator = self.wgs842mercator(segment)
+        print(point_mercator, point)
+        print(segment_mercator, segment)
         segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
-        if k0:
-            vertical_e, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": -1 / k0 if k0 else None})
-            vertical_point = [(b1 - b0) / (k0 - k1), vertical_e((b1 - b0) / (k0 - k1))]
+        if segment_equation is not None:
+            print("正常或垂直于y轴")
+            vertical_equation, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": None if k0 == 0 else -1 / k0})
+            if vertical_equation is not None:
+                print("正常垂线")
+                vertical_point = [(b1 - b0) / (k0 - k1), vertical_equation((b1 - b0) / (k0 - k1))]
+            else:
+                print("垂直于y轴")
+                vertical_point = [segment_mercator[0][0], point_mercator[1]]
+        # 垂直于x轴
         else:
-            vertical_point = [point_mercator[0], segment_equation(point_mercator[0])]
+            print("垂直于x轴")
+            # vertical_equation, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": 0})
+            vertical_point = [segment_mercator[0][0], point_mercator[1]]
 
+        print("vertical_point: ", vertical_point)
+        print()
         if not self.is_mid(vertical_point, segment_mercator):
             distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
                                     point_mercator[1] - segment_mercator[0][1])
@@ -184,11 +201,14 @@ class KNN:
                 [itertools.repeat(i, road) for i, road in enumerate(list(map(len, segment_line)))]
             ))
 
+            print("pipei: ", self.trajectory[num])
+
             while len(segment_line) >= k:
                 trajectory = self.change_data(np.concatenate([[self.trajectory[num]]]))
                 distance, roads_idx = tree.query(trajectory[:, 2:5], k=k)
                 distance = self.dist_to_arc_length(distance)
                 match_dict = OrderedDict()
+                print("while")
                 for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
                     # temp = [segment[0] for segment in match_set]
                     is_mid, candidate_point = self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
