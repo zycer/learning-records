@@ -3,7 +3,7 @@ import math
 import os
 import numpy as np
 import pandas as pd
-from kd_tree import KNN
+from kd_tree2 import KNN
 from queue import PriorityQueue
 from collections import OrderedDict
 from geopy.distance import geodesic
@@ -174,8 +174,8 @@ class RoadNetworkGraph:
 
         for vertex_file in self.vertex_data_files:
             vertex_data = pd.read_csv(os.path.join(self.vertex_path, vertex_file), encoding="utf-8", sep=",")
-            latitudes = vertex_data["x_coord"].values
-            longitudes = vertex_data["y_coord"].values
+            longitudes = vertex_data["x_coord"].values
+            latitudes = vertex_data["y_coord"].values
             vertex_names = vertex_data["name"].values
             vertex_ids = vertex_data["node_id"].values
 
@@ -197,8 +197,9 @@ class RoadNetworkGraph:
             for road_one in zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, speed_limits, geometries):
                 road_id, fro, to, name, length, speed_limit, geometry = road_one
 
-                res = self.db_handler.exec_sql(f"SELECT average_speed FROM history_road_data WHERE road_id={road_id}")
-                average_speed = res[0][0] if res else speed_limit
+                # res = self.db_handler.exec_sql(f"SELECT average_speed FROM history_road_data WHERE road_id={road_id}")
+                # average_speed = res[0][0] if res else speed_limit
+                average_speed = 60
                 road_nodes = []
 
                 for points_str in geometry.split(","):
@@ -360,6 +361,7 @@ class RoadNetworkGraph:
         :return:
         """
         # 轨迹点附近的节点 [[1, 2], [3, 4]...]
+        print("开始计算附近街道")
         segment_trajectory_range = []
 
         if is_search:
@@ -398,6 +400,8 @@ class RoadNetworkGraph:
         else:
             for i in range(len(trajectory)):
                 segment_trajectory_range.append(self.road_segment)
+
+        print("计算完成")
 
         return KNN(trajectory, segment_trajectory_range).matched_segments(False)
 
