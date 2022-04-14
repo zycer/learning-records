@@ -123,6 +123,7 @@ class DBManager:
         self.cur.execute(sql)
         if "SELECT" not in sql:
             self.conn.commit()
+        return self.cur.fetchall()
 
     def close(self):
         self.cur.close()
