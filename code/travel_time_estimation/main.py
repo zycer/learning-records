@@ -198,7 +198,7 @@ class RoadNetworkGraph:
                 road_id, fro, to, name, length, speed_limit, geometry = road_one
 
                 res = self.db_handler.exec_sql(f"SELECT average_speed FROM history_road_data WHERE road_id={road_id}")
-                average_speed = res[0]["average_speed"] if res else speed_limit
+                average_speed = res[0][0] if res else speed_limit
                 road_nodes = []
 
                 for points_str in geometry.split(","):
@@ -368,7 +368,7 @@ class RoadNetworkGraph:
                 x, y = point
                 scope_vertex = []
                 for vertex_id, vertex in self.vertex.items():
-                    if math.hypot(x - vertex.longitude, y - vertex.latitude) < 0.05:
+                    if math.hypot(x - vertex.longitude, y - vertex.latitude) < 0.01:
                         scope_vertex.append(vertex_id)
                 vertex_trajectory_range.append(scope_vertex)
 
@@ -553,9 +553,9 @@ class AIVMM:
             little_mat2[:] = -np.inf
             score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
 
-        print("静态评分矩阵: ")
-        print(np.around(score_matrix[1:, :], 5))
-        print("-" * 140)
+        # print("静态评分矩阵: ")
+        # print(np.around(score_matrix[1:, :], 5))
+        # print("-" * 140)
         return matrix_list
 
     def distance_weight_matrix(self, trajectory):
@@ -573,11 +573,11 @@ class AIVMM:
             omega_i_matrix = np.diag(omega_ij_list)
             weight_matrix.append(omega_i_matrix)
 
-        print("距离评分矩阵：")
-        for m in weight_matrix:
-            print(m)
-            print()
-        print("-" * 140)
+        # print("距离评分矩阵：")
+        # for m in weight_matrix:
+        #     print(m)
+        #     print()
+        # print("-" * 140)
         return weight_matrix
 
     def weighted_scoring_matrix(self, trajectory, candidate_roads, candidate_points):
@@ -613,12 +613,12 @@ class AIVMM:
             phi_matrix_list.append(weighted_score_matrix[1:, :])
 
         # 打印结果
-        print("加权评分矩阵：")
-        for i, matrix in enumerate(phi_matrix_list):
-            print(f"采样点{i}:")
-            print(np.around(matrix, 2))
-            print()
-        print("-" * 140)
+        # print("加权评分矩阵：")
+        # for i, matrix in enumerate(phi_matrix_list):
+        #     print(f"采样点{i}:")
+        #     print(np.around(matrix, 2))
+        #     print()
+        # print("-" * 140)
         return distance_weight_matrix, phi_list
 
     def check_legitimate_path(self, road_a, road_b):
@@ -705,7 +705,7 @@ class AIVMM:
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
                                              self.path_weight, self.road_graph.road_segment)
         candidate_graph_obj.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
-        candidate_graph_obj.show_data()
+        # candidate_graph_obj.show_data()
         return candidate_graph_obj
 
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
@@ -738,21 +738,24 @@ class AIVMM:
                 vote[index] = edge
 
         for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda temp: temp[0]):
-            final_path.append(edge.fro)
-            final_path.append(edge.to) if key == n - 2 else None
+            final_path.append(edge.fro if edge else None)
+            final_path.append(edge.to if edge else None) if key == n - 2 else None
 
         print("投票结果：")
         table = PrettyTable(["边", "票数"])
         for edge in vote.values():
-            table.add_row([edge.idx, edge.vote])
+            table.add_row([edge.idx, edge.vote] if edge else [None, None])
         print(table)
         print("\n最终匹配路径: ", final_path)
 
         print("路径对应的路段id：", end="")
         temp = []
         for point in final_path:
-            i, j = map(int, point.split('&'))
-            temp.append(candidate_roads[i][j])
+            if point is not None:
+                i, j = map(int, point.split('&'))
+                temp.append(candidate_roads[i][j])
+            else:
+                temp.append(None)
         print(temp)
         print("-" * 140)
 
@@ -809,21 +812,22 @@ class Main:
         instant_speed = self.calculate_instant_speed(trajectory, rate)
 
         for i in range(len(final_path) - 1):
-            sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
-            sample_index_cur, candi_index_cur = map(int, final_path[i + 1].split('&'))
-            pre_road_id = candidate_roads[sample_index_pre][candi_index_pre]
-            cur_road_id = candidate_roads[sample_index_cur][candi_index_cur]
+            if final_path[i] is not None and final_path[i + 1]:
+                sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
+                sample_index_cur, candi_index_cur = map(int, final_path[i + 1].split('&'))
+                pre_road_id = candidate_roads[sample_index_pre][candi_index_pre]
+                cur_road_id = candidate_roads[sample_index_cur][candi_index_cur]
 
-            if pre_road_id not in speed_dict.keys():
-                speed_dict[pre_road_id] = []
-            if cur_road_id not in speed_dict.keys():
-                speed_dict[cur_road_id] = []
+                if pre_road_id not in speed_dict.keys():
+                    speed_dict[pre_road_id] = []
+                if cur_road_id not in speed_dict.keys():
+                    speed_dict[cur_road_id] = []
 
-            if pre_road_id == cur_road_id:
-                speed_dict[pre_road_id].append(instant_speed[i])
-            else:
-                speed_dict[cur_road_id].append(instant_speed[i])
-                speed_dict[pre_road_id].append(instant_speed[i])
+                if pre_road_id == cur_road_id:
+                    speed_dict[pre_road_id].append(instant_speed[i])
+                else:
+                    speed_dict[cur_road_id].append(instant_speed[i])
+                    speed_dict[pre_road_id].append(instant_speed[i])
 
         for road_id, speed_list in speed_dict.items():
             self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
@@ -836,17 +840,15 @@ class Main:
             speed = np.around(np.mean(value), 2).item()
             timestamp = timestamp.item() if isinstance(timestamp, np.int64) else timestamp
             key = key.item()
-            road_obj = self.db_handler.exec_sql(f"SELECT * FROM history_road_data WHERE road_id='{road_id}'")
+            road_obj = self.db_handler.exec_sql(f"SELECT * FROM history_road_data WHERE road_id='{key}'")
             if road_obj:
-                history = json.loads(road_obj[0]["history"])
+                history = json.loads(road_obj[0][1])
                 history[timestamp] = speed
                 average_speed = sum(history.values()) / len(history)
                 self.db_handler.exec_sql(
                     f"UPDATE history_road_data set history='{json.dumps(history)}',average_speed={average_speed} WHERE road_id='{key}'")
             else:
                 history = {timestamp: speed}
-                print("~~~~~~~~~~")
-                print(history)
                 self.db_handler.exec_sql(f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed})")
             table.add_row([key, timestamp, value, speed])
         print(table)
