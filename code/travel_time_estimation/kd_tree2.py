@@ -11,7 +11,7 @@ from prettytable import PrettyTable
 
 
 class KNN:
-    def __init__(self, trajectory, roads, neighbor_num=3):
+    def __init__(self, roads, neighbor_num=3):
         """
         param: trajectory: GPS轨迹点列表 [[x1, y1], [x2, y2],...]
         param: roads: 路网中所有道路
@@ -20,17 +20,17 @@ class KNN:
         self.segment_id_list: 与列表self.segment_lines对应顺序的道路真实id
         [[road_id1,road_id1,road_id2,...], [road_id3,...]]
         """
-        self.trajectory = trajectory
         self.roads = roads
         self.neighbor_num = neighbor_num
-        self.segment_lines = []
-        self.segment_id_list = []
+        # self.segment_lines = []
+        # self.segment_id_list = []
         self.r = 6367
 
         self.roads_segments = []
         self.roads_segments_id = []
 
-        for road_id, road_obj in roads[0].items():
+        # qu diao 0
+        for road_id, road_obj in roads.items():
             for i in range(len(road_obj.road_nodes) - 1):
                 self.roads_segments.append([[road_obj.road_nodes[i][0], road_obj.road_nodes[i][1]],
                                  [road_obj.road_nodes[i + 1][0], road_obj.road_nodes[i + 1][1]]])
@@ -38,7 +38,7 @@ class KNN:
 
         road_segments_data = self.change_data(np.concatenate(self.roads_segments))
         self.tree = spatial.cKDTree(road_segments_data[:, 2:5])
-        self.true_road_index = tuple(itertools.chain.from_iterable(
+        self.segments_ix = tuple(itertools.chain.from_iterable(
             [itertools.repeat(i, road) for i, road in enumerate(list(map(len, self.roads_segments)))]
         ))
 
@@ -136,35 +136,49 @@ class KNN:
                 return False
         return True
 
-    def generate_candidate_point(self, segment, point):
-        point_mercator: list = self.wgs842mercator(point)
-        segment_mercator = self.wgs842mercator(segment)
-        segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
-        if segment_equation is not None:
-            vertical_equation, k1, b1 = self.generate_equation(**{"point": point_mercator, "k": None if k0 == 0 else -1 / k0})
-            if vertical_equation is not None:
-                vertical_point = [(b1 - b0) / (k0 - k1), vertical_equation((b1 - b0) / (k0 - k1))]
-            else:
-                vertical_point = [segment_mercator[0][0], point_mercator[1]]
-        # 垂直于x轴
-        else:
-            vertical_point = [segment_mercator[0][0], point_mercator[1]]
+    def generate_candidate_point(self, roads_idx, trajectory):
+        candidate_points = []
 
-        if not self.is_mid(vertical_point, segment_mercator):
-            distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
-                                    point_mercator[1] - segment_mercator[0][1])
+        for num, point in enumerate(trajectory):
+            one_tra_candi_point = []
+            point_mercator: list = self.wgs842mercator(point)
+            matched_segments_ix = itemgetter(*roads_idx[num])(self.segments_ix)
+            segments_id = [self.roads_segments_id[ix] for ix in matched_segments_ix]
 
-            distance_2 = math.hypot(point_mercator[0] - segment_mercator[1][0],
-                                    point_mercator[1] - segment_mercator[1][1])
+            for seg_id in segments_id:
+                segment = self.roads_segments[seg_id]
+                segment_mercator = self.wgs842mercator(segment)
+                segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})
 
-            candidate_point = segment[0] if distance_1 < distance_2 else segment[1]
+                if segment_equation is not None:
+                    vertical_equation, k1, b1 = self.generate_equation(
+                        **{"point": point_mercator, "k": None if k0 == 0 else -1 / k0})
+                    if vertical_equation is not None:
+                        vertical_point = [(b1 - b0) / (k0 - k1), vertical_equation((b1 - b0) / (k0 - k1))]
+                    else:
+                        vertical_point = [segment_mercator[0][0], point_mercator[1]]
+                # 垂直于x轴
+                else:
+                    vertical_point = [segment_mercator[0][0], point_mercator[1]]
 
-        else:
-            candidate_point = self.mercator2wgs84(vertical_point)
+                if not self.is_mid(vertical_point, segment_mercator):
+                    distance_1 = math.hypot(point_mercator[0] - segment_mercator[0][0],
+                                            point_mercator[1] - segment_mercator[0][1])
 
-        return self.is_mid(vertical_point, segment_mercator), tuple(candidate_point)
+                    distance_2 = math.hypot(point_mercator[0] - segment_mercator[1][0],
+                                            point_mercator[1] - segment_mercator[1][1])
 
-    def matched_knn(self, is_plot=True):
+                    candidate_point = segment[0] if distance_1 < distance_2 else segment[1]
+
+                else:
+                    candidate_point = self.mercator2wgs84(vertical_point)
+
+                one_tra_candi_point.append(tuple(candidate_point))
+            candidate_points.append(one_tra_candi_point)
+
+        return candidate_points
+
+    def matched_knn(self, trajectory, is_plot=False):
         """
         匹配k个邻居
         param: is_plot: 是否画图显示
@@ -172,57 +186,21 @@ class KNN:
         """
         matched = []
         start_time = time.time()
+        change_trajectory_data = self.change_data(np.concatenate([trajectory]))
+        distance, segments_ix = self.tree.query(change_trajectory_data[:, 2:5], k=self.neighbor_num)
+        distance = self.dist_to_arc_length(distance)
+        candidate_points = self.generate_candidate_point(segments_ix, trajectory)
+        print(candidate_points)
+        print(distance)
+        # matched: [{(road_id, distance,[long, lat]), (road_id, distance), [long, lat]...},...},...]
 
-        for num, segment_line in enumerate(self.segment_lines):
-            last_matched = set()
-            k = self.neighbor_num
-            lines = self.change_data(np.concatenate(segment_line))
-            tree = spatial.cKDTree(lines[:, 2:5])
-            lines_ix = tuple(itertools.chain.from_iterable(
-                [itertools.repeat(i, road) for i, road in enumerate(list(map(len, segment_line)))]
-            ))
-            trajectory = self.change_data(np.concatenate([[self.trajectory[num]]]))
-            t2 = time.time()
-            for ii in range(1000):
-                tra = self.change_data(np.concatenate([[self.trajectory[num]]]))
-                distance, roads_idx = tree.query(tra[:, 2:5], k=100)
-            print("查找：", time.time()-t2)
-            # print("查找结果：", roads_idx)
+        for num in range(len(trajectory)):
+            one_tra_matched = list()
+            matched_segments_ix = itemgetter(*segments_ix[num])(self.segments_ix)
+            for i, seg_ix in enumerate(matched_segments_ix):
+                one_tra_matched.append((self.roads_segments_id[seg_ix], distance[num][i], candidate_points[num][i]))
 
-            exit()
-
-            print("pipei: ", self.trajectory[num])
-
-            while len(segment_line) >= k:
-                trajectory = self.change_data(np.concatenate([[self.trajectory[num]]]))
-                distance, roads_idx = tree.query(trajectory[:, 2:5], k=k)
-                distance = self.dist_to_arc_length(distance)
-                match_dict = OrderedDict()
-                print("while")
-                for index, segment_id in enumerate(itemgetter(*roads_idx[0])(lines_ix)):
-                    # temp = [segment[0] for segment in match_set]
-                    is_mid, candidate_point = self.generate_candidate_point(segment_line[segment_id], self.trajectory[num])
-
-                    if self.segment_id_list[num][segment_id] not in match_dict:
-                        match_dict[self.segment_id_list[num][segment_id]] = (distance[0][index], candidate_point)
-                    elif is_mid:
-                        del match_dict[self.segment_id_list[num][segment_id]]
-                        match_dict[self.segment_id_list[num][segment_id]] = (distance[0][index], candidate_point)
-                    else:
-                        pass
-
-                if len(match_dict) == self.neighbor_num:
-                    match_set = [(key, value[0], value[1]) for key, value in match_dict.items()]
-                    matched.append(match_set)
-                    break
-                else:
-                    k += 1
-
-                last_matched = match_dict
-
-            if k > len(segment_line):
-                match_set = [(key, value[0], value[1]) for key, value in last_matched.items()]
-                matched.append(match_set)
+            matched.append(one_tra_matched)
 
         print(f"候选点匹配用时<{round(time.time() - start_time, 6)}>秒，匹配结果: \n")
         for i, result in enumerate(matched):
@@ -234,16 +212,16 @@ class KNN:
             print()
 
         if is_plot:
-            self.plot_result()
+            self.plot_result(trajectory)
         return matched, time.time() - start_time
 
-    def plot_result(self):
+    def plot_result(self, trajectory):
         for i, segment in enumerate(self.segment_lines):
             plt.figure(figsize=(20, 20), dpi=80)
             for j, lines in enumerate(segment):
                 plt.plot([lines[0][0], lines[1][0]], [lines[0][1], lines[1][1]],
                          label=f"{j}-{self.segment_id_list[i][j]}")
 
-            plt.scatter(self.trajectory[i][0], self.trajectory[i][1])
+            plt.scatter(trajectory[i][0], trajectory[i][1])
             plt.legend(loc=0, ncol=2)
             plt.show()
