@@ -216,11 +216,11 @@ class KNN:
         return matched, time.time() - start_time
 
     def plot_result(self, trajectory):
-        for i, segment in enumerate(self.segment_lines):
+        for i, segment in enumerate(self.roads_segments):
             plt.figure(figsize=(20, 20), dpi=80)
             for j, lines in enumerate(segment):
                 plt.plot([lines[0][0], lines[1][0]], [lines[0][1], lines[1][1]],
-                         label=f"{j}-{self.segment_id_list[i][j]}")
+                         label=f"{j}-{self.roads_segments_id[j]}")
 
             plt.scatter(trajectory[i][0], trajectory[i][1])
             plt.legend(loc=0, ncol=2)
