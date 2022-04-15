@@ -1,5 +1,6 @@
 import json
 import math
+import time
 import os
 import numpy as np
 import pandas as pd
@@ -360,50 +361,7 @@ class RoadNetworkGraph:
         :param trajectory: GPS轨迹点 [(x1,y1), (x2,y2)...]
         :return:
         """
-        # 轨迹点附近的节点 [[1, 2], [3, 4]...]
-        print("开始计算附近街道")
-        segment_trajectory_range = []
-
-        if is_search:
-            vertex_trajectory_range = []
-            for point in trajectory:
-                x, y = point
-                scope_vertex = []
-                for vertex_id, vertex in self.vertex.items():
-                    if math.hypot(x - vertex.longitude, y - vertex.latitude) < 0.01:
-                        scope_vertex.append(vertex_id)
-                vertex_trajectory_range.append(scope_vertex)
-
-            # 根据轨迹带你附近的节点，查询其出度与入度，并将关联的路段保存[{1:segment_obj, 2: segment_obj}, {...,...},...]
-
-            for vertexes in vertex_trajectory_range:
-                scope_segment = {}
-                for vertex_id in vertexes:
-                    try:
-                        temp = self.adjacency_table[vertex_id]
-                        for segment in temp.values():
-                            if segment.idx not in scope_segment.keys():
-                                scope_segment[segment.idx] = segment
-                    except KeyError:
-                        pass
-
-                    try:
-                        temp = self.inverse_adjacency_table[vertex_id]
-                        for segment in temp.values():
-                            if segment.idx not in scope_segment.keys():
-                                scope_segment[segment.idx] = segment
-                    except KeyError:
-                        pass
-
-                segment_trajectory_range.append(scope_segment)
-
-        else:
-            for i in range(len(trajectory)):
-                segment_trajectory_range.append(self.road_segment)
-
-        print("计算完成")
-
-        return KNN(trajectory, segment_trajectory_range).matched_segments(False)
+        return KNN(trajectory, self.road_segment).matched_knn(False)
 
     def road_speed_limit(self, road_id):
         """
@@ -422,6 +380,7 @@ class AIVMM:
         self.sigma = sigma
         self.neighbor_num = neighbor_num
         self.candidate_graph_obj = None
+        self.knn = KNN(self.road_graph.road_segment)
 
     # 位置和道路分析
     @classmethod
@@ -533,7 +492,7 @@ class AIVMM:
         return sa * ta * rlf
 
     # 相互影响分析
-    def static_score_matrix(self, trajectory, candidate_roads, candidate_points):
+    def static_score_matrix(self, trajectory, candidate_roads, candidate_points, is_show=False):
         """
         param: candidate_points: 轨迹的候选点
         静态评分矩阵
@@ -557,12 +516,13 @@ class AIVMM:
             little_mat2[:] = -np.inf
             score_matrix = np.bmat([[score_matrix, little_mat1], [little_mat2, matrix]])
 
-        # print("静态评分矩阵: ")
-        # print(np.around(score_matrix[1:, :], 5))
-        # print("-" * 140)
+        if is_show:
+            print("静态评分矩阵: ")
+            print(np.around(score_matrix[1:, :], 5))
+            print("-" * 140)
         return matrix_list
 
-    def distance_weight_matrix(self, trajectory):
+    def distance_weight_matrix(self, trajectory, is_show=False):
         """
         轨迹点的距离权重矩阵
         """
@@ -577,14 +537,15 @@ class AIVMM:
             omega_i_matrix = np.diag(omega_ij_list)
             weight_matrix.append(omega_i_matrix)
 
-        # print("距离评分矩阵：")
-        # for m in weight_matrix:
-        #     print(m)
-        #     print()
-        # print("-" * 140)
+        if is_show:
+            print("距离评分矩阵：")
+            for m in weight_matrix:
+                print(m)
+                print()
+            print("-" * 140)
         return weight_matrix
 
-    def weighted_scoring_matrix(self, trajectory, candidate_roads, candidate_points):
+    def weighted_scoring_matrix(self, trajectory, candidate_roads, candidate_points, is_show=False):
         """
         param: trajectory: GPS轨迹点
         param: candidate_points: GPS轨迹点对应的候选点
@@ -616,13 +577,13 @@ class AIVMM:
                 weighted_score_matrix = np.bmat([[weighted_score_matrix, little_mat_1], [little_mat_2, phi_ij]])
             phi_matrix_list.append(weighted_score_matrix[1:, :])
 
-        # 打印结果
-        # print("加权评分矩阵：")
-        # for i, matrix in enumerate(phi_matrix_list):
-        #     print(f"采样点{i}:")
-        #     print(np.around(matrix, 2))
-        #     print()
-        # print("-" * 140)
+        if is_show:
+            print("加权评分矩阵：")
+            for i, matrix in enumerate(phi_matrix_list):
+                print(f"采样点{i}:")
+                print(np.around(matrix, 2))
+                print()
+            print("-" * 140)
         return distance_weight_matrix, phi_list
 
     def check_legitimate_path(self, road_a, road_b):
@@ -686,10 +647,11 @@ class AIVMM:
         """
         local_optimal_path_sequence = []
         f_value_sequence = []
+
         candi_count = [len(points) for points in candidate_points]
+        # haoshi
         self.candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
-
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
             lop_i = []
@@ -708,19 +670,16 @@ class AIVMM:
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
                                              self.path_weight, self.road_graph.road_segment)
+        # haoshi
         candidate_graph_obj.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
+
         # candidate_graph_obj.show_data()
         return candidate_graph_obj
 
-    def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points):
+    def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points, is_show=True):
         n = len(trajectory)
         final_path = []
         lop_seq, f_value_seq = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
-
-        print("所有候选点的局部最优路径：")
-        for i, lop in enumerate(lop_seq):
-            print(f"采样点{i}: ", lop)
-        print()
 
         for lop in lop_seq:
             for item in lop:
@@ -745,23 +704,30 @@ class AIVMM:
             final_path.append(edge.fro if edge else None)
             final_path.append(edge.to if edge else None) if key == n - 2 else None
 
-        print("投票结果：")
-        table = PrettyTable(["边", "票数"])
-        for edge in vote.values():
-            table.add_row([edge.idx, edge.vote] if edge else [None, None])
-        print(table)
-        print("\n最终匹配路径: ", final_path)
+        if is_show:
+            # print("所有候选点的局部最优路径：")
+            # for i, lop in enumerate(lop_seq):
+            #     print(f"采样点{i}: ", lop)
+            # print()
 
-        print("路径对应的路段id：", end="")
-        temp = []
-        for point in final_path:
-            if point is not None:
-                i, j = map(int, point.split('&'))
-                temp.append(candidate_roads[i][j])
-            else:
-                temp.append(None)
-        print(temp)
-        print("-" * 140)
+            # print("投票结果：")
+            # table = PrettyTable(["边", "票数"])
+            # for edge in vote.values():
+            #     table.add_row([edge.idx, edge.vote] if edge else [None, None])
+            # print(table)
+            print("最终匹配路径: %s" % final_path)
+
+            # print("路径对应的路段id：", end="")
+            #
+            # temp = []
+            # for point in final_path:
+            #     if point is not None:
+            #         i, j = map(int, point.split('&'))
+            #         temp.append(candidate_roads[i][j])
+            #     else:
+            #         temp.append(None)
+            # print(temp)
+            # print("-" * 140)
 
         return final_path
 
@@ -791,8 +757,8 @@ class Main:
         return instantaneous_velocity
 
     def match_candidate(self, trajectory, timestamp, rate=15):
-        print(trajectory)
-        matched_result, match_time = self.road_graph.k_nearest_neighbors(trajectory)
+        matched_result, match_time = self.aivmm.knn.matched_knn(trajectory)
+
         candidate_distance = []
         candidate_roads = []
         candidate_points = []
@@ -812,6 +778,7 @@ class Main:
             candidate_points.append(point_temp)
 
         final_path = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
+
         speed_dict = {}
         instant_speed = self.calculate_instant_speed(trajectory, rate)
 
@@ -836,10 +803,8 @@ class Main:
         for road_id, speed_list in speed_dict.items():
             self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
 
-        # self.road_graph.show_graph_data(show_vertex=False)
-
-        print("匹配道路的速度值：")
-        table = PrettyTable(["路段id", "时刻", "速度列表", "平均速度"])
+        # print("匹配道路的速度值：")
+        # table = PrettyTable(["路段id", "时刻", "速度列表", "平均速度"])
         for key, value in speed_dict.items():
             speed = np.around(np.mean(value), 2).item()
             timestamp = timestamp.item() if isinstance(timestamp, np.int64) else timestamp
@@ -853,10 +818,12 @@ class Main:
                     f"UPDATE history_road_data set history='{json.dumps(history)}',average_speed={average_speed} WHERE road_id='{key}'")
             else:
                 history = {timestamp: speed}
-                self.db_handler.exec_sql(f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed})")
-            table.add_row([key, timestamp, value, speed])
-        print(table)
-        print()
+                self.db_handler.exec_sql(
+                    f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed})")
+            # table.add_row([key, timestamp, value, speed])
+
+        # print(table)
+        # print()
 
         # 画图
         # plt.figure(figsize=(10, 10))
@@ -896,14 +863,14 @@ class Main:
                     try:
                         polyline = json.loads(tra_one["POLYLINE"].values[0])
                         if len(polyline) < 2:
-                            raise json.decoder.JSONDecodeError
+                            raise json.decoder.JSONDecodeError("decoder", "JSONDecodeError", 866)
 
                     except json.decoder.JSONDecodeError:
                         print(f"{trip_id}: data type error")
                         continue
-
+                    t = time.time()
                     self.match_candidate(polyline, timestamp)
-
+                    print("匹配用时: %s\n" % (time.time() - t))
             except StopIteration:
                 print("匹配结束")
                 break
