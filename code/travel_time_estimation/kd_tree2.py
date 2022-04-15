@@ -178,7 +178,7 @@ class KNN:
 
         return candidate_points
 
-    def matched_knn(self, trajectory, is_plot=False):
+    def matched_knn(self, trajectory, is_plot=False, is_show=False):
         """
         匹配k个邻居
         param: is_plot: 是否画图显示
@@ -190,9 +190,6 @@ class KNN:
         distance, segments_ix = self.tree.query(change_trajectory_data[:, 2:5], k=self.neighbor_num)
         distance = self.dist_to_arc_length(distance)
         candidate_points = self.generate_candidate_point(segments_ix, trajectory)
-        print(candidate_points)
-        print(distance)
-        # matched: [{(road_id, distance,[long, lat]), (road_id, distance), [long, lat]...},...},...]
 
         for num in range(len(trajectory)):
             one_tra_matched = list()
@@ -202,14 +199,15 @@ class KNN:
 
             matched.append(one_tra_matched)
 
-        print(f"候选点匹配用时<{round(time.time() - start_time, 6)}>秒，匹配结果: \n")
-        for i, result in enumerate(matched):
-            print(f"采样点{i}: ")
-            table = PrettyTable(["路段ID", "距离", "经度", "纬度"])
-            for res in result:
-                table.add_row([res[0], res[1], res[2][1], res[2][1]])
-            print(table)
-            print()
+        if is_show:
+            print(f"候选点匹配用时<{round(time.time() - start_time, 6)}>秒")
+            # for i, result in enumerate(matched):
+            #     print(f"采样点{i}: ")
+            #     table = PrettyTable(["路段ID", "距离", "经度", "纬度"])
+            #     for res in result:
+            #         table.add_row([res[0], res[1], res[2][1], res[2][1]])
+            #     print(table)
+            #     print()
 
         if is_plot:
             self.plot_result(trajectory)
@@ -225,3 +223,7 @@ class KNN:
             plt.scatter(trajectory[i][0], trajectory[i][1])
             plt.legend(loc=0, ncol=2)
             plt.show()
+
+
+# knn = KNN([[-8.602785, 41.145705], [-8.12345, 41.134553]], 123)
+# print(knn.change_data(np.concatenate([[[-8.602785, 41.145705], [-8.12345, 41.134553]]])))
