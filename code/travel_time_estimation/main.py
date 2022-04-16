@@ -830,13 +830,8 @@ class Main:
 
         # 画图
         plt.figure(figsize=(10, 10))
-        # index_min = 0 if int(list(speed_dict.keys())[0]) - 1000 <= 0 else int(list(speed_dict.keys())[0]) - 1000
-        # index_max = int(list(speed_dict.keys())[0]) + 1000
-        # for i in range(index_min, index_max):
-        #     plot_road(self.road_graph.road_segment[i])
-        #
-        plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], label='sample point')
-        print(candidate_points)
+        plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
+                    label='sample points')
         x_list = []
         y_list = []
         for candi in candidate_points:
@@ -844,22 +839,25 @@ class Main:
                 x_list.append(point[0])
                 y_list.append(point[1])
 
-        print(x_list)
-        print(y_list)
+        plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
 
-        plt.scatter(x_list, y_list)
+        for i, candi_roads in enumerate(candidate_roads):
+            for j, road_id in enumerate(candi_roads):
+                if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
+                    is_label = True
+                else:
+                    is_label = False
+                plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
 
-        # final_path_candi_point = []
-        #
-        # for i, points in enumerate(candidate_points):
-        #     try:
-        #         final_path_candi_point.append(candidate_points[i][int(final_path[i].split('&')[1])])
-        #         for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
-        #             plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
-        #     except AttributeError:
-        #         pass
+        x_list = []
+        y_list = []
+        for p in final_path:
+            if p is not None:
+                i, j = list(map(int, p.split("&")))
+                x_list.append(candidate_points[i][j][0])
+                y_list.append(candidate_points[i][j][1])
 
-        # plt.plot([temp[0] for temp in final_path_candi_point], [temp[1] for temp in final_path_candi_point])
+        plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
         plt.legend(loc=0, ncol=2)
         plt.show()
 
@@ -895,9 +893,11 @@ class Main:
                 break
 
 
-def plot_road(road_obj):
-    plt.plot([temp[0] for temp in road_obj.road_nodes],
-             [temp[1] for temp in road_obj.road_nodes], label=f"{road_obj.idx}")
+def plot_road(road_obj, is_label=False):
+    args = {"color": "#33ccff", "alpha": 0.6}
+    if is_label:
+        args["label"] = "roads"
+    plt.plot([temp[0] for temp in road_obj.road_nodes], [temp[1] for temp in road_obj.road_nodes], **args)
 
 
 def load_trajectory():
