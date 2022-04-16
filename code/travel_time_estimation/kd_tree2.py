@@ -11,7 +11,7 @@ from prettytable import PrettyTable
 
 
 class KNN:
-    def __init__(self, roads, neighbor_num=3):
+    def __init__(self, roads, neighbor_num=2):
         """
         param: trajectory: GPS轨迹点列表 [[x1, y1], [x2, y2],...]
         param: roads: 路网中所有道路
@@ -143,9 +143,8 @@ class KNN:
             one_tra_candi_point = []
             point_mercator: list = self.wgs842mercator(point)
             matched_segments_ix = itemgetter(*roads_idx[num])(self.segments_ix)
-            segments_id = [self.roads_segments_id[ix] for ix in matched_segments_ix]
 
-            for seg_id in segments_id:
+            for seg_id in matched_segments_ix:
                 segment = self.roads_segments[seg_id]
                 segment_mercator = self.wgs842mercator(segment)
                 segment_equation, k0, b0 = self.generate_equation(**{"points": segment_mercator})

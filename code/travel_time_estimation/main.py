@@ -739,10 +739,13 @@ class Main:
         self.beta = beta
 
         self.trajectory_data = dict()
+        print("加载路网数据...")
         self.road_graph = RoadNetworkGraph()
         self.road_graph.load_road_data()
         self.db_handler = DBManager()
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
+        print("加载完成: ")
+        print("道路数：%s, 路口数：%s" % (len(self.road_graph.road_segment), len(self.road_graph.vertex)))
 
     @classmethod
     def calculate_instant_speed(cls, trajectory, rate):
@@ -826,23 +829,39 @@ class Main:
         # print()
 
         # 画图
-        # plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(10, 10))
         # index_min = 0 if int(list(speed_dict.keys())[0]) - 1000 <= 0 else int(list(speed_dict.keys())[0]) - 1000
         # index_max = int(list(speed_dict.keys())[0]) + 1000
         # for i in range(index_min, index_max):
         #     plot_road(self.road_graph.road_segment[i])
         #
-        # plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], label='sample point')
+        plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], label='sample point')
+        print(candidate_points)
+        x_list = []
+        y_list = []
+        for candi in candidate_points:
+            for point in candi:
+                x_list.append(point[0])
+                y_list.append(point[1])
+
+        print(x_list)
+        print(y_list)
+
+        plt.scatter(x_list, y_list)
+
         # final_path_candi_point = []
         #
         # for i, points in enumerate(candidate_points):
-        #     final_path_candi_point.append(candidate_points[i][int(final_path[i].split('&')[1])])
-        #     for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
-        #         plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
-        #
+        #     try:
+        #         final_path_candi_point.append(candidate_points[i][int(final_path[i].split('&')[1])])
+        #         for j, p in enumerate(zip([temp[0] for temp in points], [temp[1] for temp in points])):
+        #             plt.scatter([p[0]], [p[1]], label=f"{i}-{j}")
+        #     except AttributeError:
+        #         pass
+
         # plt.plot([temp[0] for temp in final_path_candi_point], [temp[1] for temp in final_path_candi_point])
-        # plt.legend(loc=0, ncol=2)
-        # plt.show()
+        plt.legend(loc=0, ncol=2)
+        plt.show()
 
     def load_trajectory(self):
         file_path = "data/gps_trajectory"
@@ -893,8 +912,5 @@ def load_trajectory():
 
 
 if __name__ == "__main__":
-    # trajectory_dict = load_trajectory()
-    # # print(trajectory_dict.popitem()[1])
-    # Main().match_candidate(trajectory_dict.popitem()[1])
     m = Main()
     m.main()
