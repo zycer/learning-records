@@ -172,6 +172,10 @@ class RoadNetworkGraph:
         """
         加载文件中的路网信息，并建立路网图
         """
+        res = self.db_handler.exec_sql(f"SELECT road_id, average_speed FROM history_road_data")
+        known_roads = {}
+        for data in res:
+            known_roads[data[0]] = data[1]
 
         for vertex_file in self.vertex_data_files:
             vertex_data = pd.read_csv(os.path.join(self.vertex_path, vertex_file), encoding="utf-8", sep=",")
@@ -198,9 +202,10 @@ class RoadNetworkGraph:
             for road_one in zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, speed_limits, geometries):
                 road_id, fro, to, name, length, speed_limit, geometry = road_one
 
-                # res = self.db_handler.exec_sql(f"SELECT average_speed FROM history_road_data WHERE road_id={road_id}")
-                # average_speed = res[0][0] if res else speed_limit
-                average_speed = 60
+                if road_id in known_roads.keys():
+                    average_speed = known_roads[road_id]
+                else:
+                    average_speed = 60
                 road_nodes = []
 
                 for points_str in geometry.split(","):
@@ -912,5 +917,4 @@ def load_trajectory():
 
 
 if __name__ == "__main__":
-    m = Main()
-    m.main()
+    Main().main()
