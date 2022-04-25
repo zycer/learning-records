@@ -39,7 +39,8 @@ class WindowMgr:
         self._handle = None
         win32gui.EnumWindows(self._window_enum_callback, 0)
 
-    def send_key_event(self):
+    def send_key_event(self, end_flag):
+        time.sleep(0.1)
         self._hwnd_title.clear()
         self.find_window_wildcard()
         pythoncom.CoInitialize()
@@ -61,6 +62,12 @@ class WindowMgr:
             win32gui.SetActiveWindow(self._handle)
 
         time.sleep(0.1)
+        if not end_flag:
+            win32api.keybd_event(39, 0, 0, 0)
+            win32api.keybd_event(39, 0, win32con.KEYEVENTF_KEYUP, 0)  # 松开按键
+            win32api.keybd_event(32, 0, 0, 0)
+            win32api.keybd_event(32, 0, win32con.KEYEVENTF_KEYUP, 0)  # 松开按键
+
         win32api.keybd_event(17, 0, 0, 0)
         win32api.keybd_event(86, 0, 0, 0)
         win32api.keybd_event(86, 0, win32con.KEYEVENTF_KEYUP, 0)  # 松开按键
@@ -68,38 +75,50 @@ class WindowMgr:
 
 
 class KeyBoard:
-    def __init__(self, key_board_value, exec_func):
+    def __init__(self, key_board_value, exec_func, is_add=False):
         self.key_board_value = key_board_value
         self.exec_func = exec_func
         self.count = 0
+        self.is_add = is_add
+        self.hotkey = None
+        self.l = None
 
     def start_listen(self):
         def for_canonical(f):
-            return lambda k: f(l.canonical(k))
+            return lambda k: f(self.l.canonical(k))
 
-        hotkey = keyboard.HotKey(
+        self.hotkey = keyboard.HotKey(
             keyboard.HotKey.parse(self.key_board_value), self.on_activate)
 
         with keyboard.Listener(
-                on_press=for_canonical(hotkey.press),
-                on_release=for_canonical(hotkey.release)) as l:
-            l.join()
+                on_press=for_canonical(self.hotkey.press),
+                on_release=for_canonical(self.hotkey.release)) as self.l:
+            self.l.join()
 
     def on_activate(self):
+        str_old = pyperclip.paste().strip()
+        end_flag = True if str_old == "" or str_old[-1] == '.' else False
+
         time.sleep(0.2)
+
+        # 复制选中内容
         win32api.keybd_event(17, 0, 0, 0)
         win32api.keybd_event(67, 0, 0, 0)
         win32api.keybd_event(67, 0, win32con.KEYEVENTF_KEYUP, 0)  # 松开按键
         win32api.keybd_event(17, 0, win32con.KEYEVENTF_KEYUP, 0)
+
         time.sleep(0.1)
-        str_prev = pyperclip.paste()
+
+        str_prev = pyperclip.paste().strip()
         str_next = re.sub(r"\s{1,2}", " ", str_prev)
         new_str = ""
+
         for idx, cha in enumerate(str_next):
             if cha == ' ' and idx > 0:
                 if str_next[idx - 1] == '-':
                     continue
             new_str += cha
+        new_str = new_str.strip()
 
         try:
             print("<%s>: %s" % (self.count, new_str))
@@ -110,7 +129,7 @@ class KeyBoard:
         self.count += 1
 
         if callable(self.exec_func):
-            self.exec_func()
+            self.exec_func(end_flag)
 
 
 class Mouse:
@@ -165,8 +184,8 @@ class Mouse:
 if __name__ == "__main__":
     w = WindowMgr("HuaweiTranslateWindow")
 
-    k = KeyBoard('<alt>+d', w.send_key_event)
-    k.start_listen()
+    k1 = KeyBoard('<alt>+d', w.send_key_event)
+    k1.start_listen()
 
     # m = Mouse()
     # m.start_listen()
