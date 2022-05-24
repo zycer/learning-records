@@ -1,6 +1,6 @@
+import copy
 import json
 from pathlib import Path
-
 
 import networkx as nx
 import pandas as pd
@@ -12,13 +12,15 @@ from db_manager import DBManager
 class BayesianEstimate:
     def __init__(self):
         self.basic_graph = None
-        self.time_frame = 600
+        self.time_frame = 6000
         self.db_handler = DBManager()
+        self.get_basic_traffic_graph()
 
     def get_basic_traffic_graph(self):
-        road_data = [get_road_data(road_file) for road_file in Path(ROAD_DATA_PATH).iterdir()]  # save road data iterator
+        road_data = [get_road_data(road_file) for road_file in
+                     Path(ROAD_DATA_PATH).iterdir()]  # save road data iterator
         intersection_data = [get_intersection_data(intersection_file) for intersection_file in
-                             Path(INTERSEC_DATA_PATH).iterdir()]    # save intersection data iterator
+                             Path(INTERSEC_DATA_PATH).iterdir()]  # save intersection data iterator
         traffic_graph = nx.DiGraph()
 
         for road_iter in road_data:
@@ -34,38 +36,49 @@ class BayesianEstimate:
         self.basic_graph = traffic_graph
 
     def generate_multi_traffic_graph(self):
-        history_data_dict = {}
         multi_traffic_graph = []
         start_timestamp = None
+        end_timestamp = None
         current_num = 0
         step_length = 100
         finish_one_flag = False
-        self.get_basic_traffic_graph()
-        print(self.basic_graph.adj)
-
+        first_exec = True
+        matched_roads_num = 0
+        copy_traffic_graph = copy.deepcopy(self.basic_graph)
         data_total = self.db_handler.exec_sql(f"SELECT count(*) FROM history_road_data")[0][0]
 
         while current_num < data_total:
-            next_num = current_num + step_length if current_num + step_length < data_total else data_total
-            history_data = self.db_handler.exec_sql(f"SELECT * FROM history_road_data limit {current_num},{next_num}")
-            current_num = next_num
+            history_data = self.db_handler.exec_sql(
+                f"SELECT * FROM history_road_data limit {current_num},{step_length}")
+            current_num += step_length
+
+            if first_exec:
+                start_timestamp = min(map(int, json.loads(history_data[0][1]).keys()))
+                end_timestamp = start_timestamp + self.time_frame
+                first_exec = False
+
+            if finish_one_flag:
+                multi_traffic_graph.append(copy_traffic_graph)
+                copy_traffic_graph = copy.deepcopy(self.basic_graph)
+                start_timestamp = min(map(int, json.loads(history_data[0][1]).keys()))
+                end_timestamp = start_timestamp + self.time_frame
+                finish_one_flag = False
 
             for road_one in history_data:
-                start_timestamp = min(map(int, json.loads(road_one[1]).keys())) if \
-                    finish_one_flag and road_one[1] else start_timestamp
+                fro = int(road_one[3])
+                to = int(road_one[4])
+                history_speed_dict = json.loads(road_one[1])
 
-                road_one[0]
+                for timestamp in history_speed_dict.keys():
+                    if start_timestamp <= int(timestamp) <= end_timestamp:
+                        copy_traffic_graph.edges[fro, to]["history_speed"] = history_speed_dict[timestamp]
+                        matched_roads_num += 1
+                        break
 
-
-
-
-
-        # for data in history_data:
-        #
-
-        # for data in history_data:
-        #     history_data_dict[data[0]] = (json.loads(data[1]), data[2])
-        # print(history_data_dict)
+            # 匹配完成标志，如果考虑计算复杂度，可以设置差值
+            if matched_roads_num == len(copy_traffic_graph.edges):
+                finish_one_flag = True
+                print("完成一个图~~~~~~~~~~~~~~~")
 
 
 BayesianEstimate().generate_multi_traffic_graph()

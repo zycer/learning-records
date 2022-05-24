@@ -827,7 +827,7 @@ class Main:
             else:
                 history = {str(timestamp): speed}
                 self.db_handler.exec_sql(
-                    f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed})")
+                    f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed}, '{self.road_graph.road_segment[key].fro}','{self.road_graph.road_segment[key].to}')")
             # table.add_row([key, timestamp, value, speed])
 
         # print(table)
