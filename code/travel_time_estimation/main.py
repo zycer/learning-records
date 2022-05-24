@@ -820,12 +820,12 @@ class Main:
             road_obj = self.db_handler.exec_sql(f"SELECT * FROM history_road_data WHERE road_id='{key}'")
             if road_obj:
                 history = json.loads(road_obj[0][1])
-                history[timestamp] = speed
+                history[str(timestamp)] = speed
                 average_speed = sum(history.values()) / len(history)
                 self.db_handler.exec_sql(
                     f"UPDATE history_road_data set history='{json.dumps(history)}',average_speed={average_speed} WHERE road_id='{key}'")
             else:
-                history = {timestamp: speed}
+                history = {str(timestamp): speed}
                 self.db_handler.exec_sql(
                     f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed})")
             # table.add_row([key, timestamp, value, speed])
@@ -834,37 +834,37 @@ class Main:
         # print()
 
         # 画图
-        plt.figure(figsize=(10, 10))
-        plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
-                    label='sample points')
-        x_list = []
-        y_list = []
-        for candi in candidate_points:
-            for point in candi:
-                x_list.append(point[0])
-                y_list.append(point[1])
-
-        plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
-
-        for i, candi_roads in enumerate(candidate_roads):
-            for j, road_id in enumerate(candi_roads):
-                if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
-                    is_label = True
-                else:
-                    is_label = False
-                plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
-
-        x_list = []
-        y_list = []
-        for p in final_path:
-            if p is not None:
-                i, j = list(map(int, p.split("&")))
-                x_list.append(candidate_points[i][j][0])
-                y_list.append(candidate_points[i][j][1])
-
-        plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
-        plt.legend(loc=0, ncol=2)
-        plt.show()
+        # plt.figure(figsize=(10, 10))
+        # plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
+        #             label='sample points')
+        # x_list = []
+        # y_list = []
+        # for candi in candidate_points:
+        #     for point in candi:
+        #         x_list.append(point[0])
+        #         y_list.append(point[1])
+        #
+        # plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
+        #
+        # for i, candi_roads in enumerate(candidate_roads):
+        #     for j, road_id in enumerate(candi_roads):
+        #         if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
+        #             is_label = True
+        #         else:
+        #             is_label = False
+        #         plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
+        #
+        # x_list = []
+        # y_list = []
+        # for p in final_path:
+        #     if p is not None:
+        #         i, j = list(map(int, p.split("&")))
+        #         x_list.append(candidate_points[i][j][0])
+        #         y_list.append(candidate_points[i][j][1])
+        #
+        # plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
+        # plt.legend(loc=0, ncol=2)
+        # plt.show()
 
     def load_trajectory(self):
         file_path = "data/gps_trajectory"
