@@ -23,3 +23,8 @@ ROAD_MAX_SPEED = {
     "footway": 10,
     "other": 50
 }
+
+ROAD_DATA_PATH = "data/road_data"
+INTERSEC_DATA_PATH = "data/vertex_data"
+ROAD_ATTR = ["link_id", "from_node_id", "to_node_id", "name", "length", "free_speed", "average_speed", "geometry"]
+INTERSEC_ATTR = ["node_id", "name", "x_coord", "y_coord"]
