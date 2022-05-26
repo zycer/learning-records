@@ -743,6 +743,8 @@ class Main:
         self.sigma = sigma
         self.beta = beta
 
+        with open("conf.json") as f:
+            self.conf = json.load(f)
         self.trajectory_data = dict()
         print("加载路网数据...")
         self.road_graph = RoadNetworkGraph()
@@ -878,6 +880,7 @@ class Main:
         self.load_trajectory()
         for tra_data in self.trajectory_data.values():
             try:
+                tra_data.get_chunk(self.conf["matched_num"])
                 while True:
                     tra_one = tra_data.get_chunk(1)
                     trip_id = tra_one["TRIP_ID"].values[0]
@@ -891,7 +894,13 @@ class Main:
                         print(f"{trip_id}: data type error")
                         continue
                     t = time.time()
-                    self.match_candidate(polyline, timestamp)
+                    try:
+                        self.match_candidate(polyline, timestamp)
+                        self.conf["matched_num"] += 1
+                        with open("conf.json", "w") as f:
+                            f.write(json.dumps(self.conf))
+                    except Exception as e:
+                        print("ERROR: ", e)
                     print("匹配用时: %s\n" % (time.time() - t))
             except StopIteration:
                 print("匹配结束")
