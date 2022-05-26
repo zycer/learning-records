@@ -30,7 +30,9 @@ speed_limit = {
 
 
 def trans_osm2graph(osm_path, out_path):
-    net = og.getNetFromFile(osm_path, link_types=('motorway', 'trunk', 'primary', 'secondary', 'tertiary'))
+    net = og.getNetFromFile(osm_path, link_types=('motorway', 'trunk', 'primary', 'secondary', 'tertiary'),
+                            default_lanes=True, default_speed=True, default_capacity=True)
+    og.consolidateComplexIntersections(net, auto_identify=True)
     og.outputNetToCSV(net, output_folder=out_path)
 
 
