@@ -76,9 +76,13 @@ class BayesianEstimate:
                         break
 
             # 匹配完成标志，如果考虑计算复杂度，可以设置差值
-            if matched_roads_num == len(copy_traffic_graph.edges):
+            # if matched_roads_num >= len(copy_traffic_graph.edges):
+            if matched_roads_num >= 20:
                 finish_one_flag = True
+                matched_roads_num = 0
                 print("完成一个图~~~~~~~~~~~~~~~")
+
+        print(multi_traffic_graph)
 
 
 BayesianEstimate().generate_multi_traffic_graph()
