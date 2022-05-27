@@ -12,7 +12,8 @@ from db_manager import DBManager
 class BayesianEstimate:
     def __init__(self):
         self.basic_graph = None
-        self.time_frame = 6000
+        self.time_frame = 60000
+        self.multi_traffic_graph = []
         self.roads_dict = {}
         self.intersection_dict = {}
         self.db_handler = DBManager()
@@ -44,16 +45,16 @@ class BayesianEstimate:
             print(road_one)
             link_id = road_one["link_id"]
             del road_one["link_id"]
-            traffic_graph.add_node(link_id, road_attr=tuple([value for value in road_one]))
+            traffic_graph.add_node(link_id, road_attr=tuple([value for value in road_one.values()]))
 
         for graph_iter in graph_data:
             for edge in graph_iter:
-                traffic_graph.add_edge(edge[0], edge[1], edge_id=edge[2])
+                traffic_graph.add_edge(edge[0], edge[1], intersec_attr=tuple([
+                    value for value in self.intersection_dict[edge[2]].values()]))
 
         self.basic_graph = traffic_graph
 
     def generate_multi_traffic_graph(self):
-        multi_traffic_graph = []
         start_timestamp = None
         end_timestamp = None
         current_num = 0
@@ -61,6 +62,7 @@ class BayesianEstimate:
         finish_one_flag = False
         first_exec = True
         matched_roads_num = 0
+        self.multi_traffic_graph.clear()
         copy_traffic_graph = copy.deepcopy(self.basic_graph)
         data_total = self.db_handler.exec_sql(f"SELECT count(*) FROM history_road_data")[0][0]
 
@@ -75,7 +77,7 @@ class BayesianEstimate:
                 first_exec = False
 
             if finish_one_flag:
-                multi_traffic_graph.append(copy_traffic_graph)
+                self.multi_traffic_graph.append(copy_traffic_graph)
                 copy_traffic_graph = copy.deepcopy(self.basic_graph)
                 start_timestamp = min(map(int, json.loads(history_data[0][1]).keys()))
                 end_timestamp = start_timestamp + self.time_frame
@@ -102,15 +104,15 @@ class BayesianEstimate:
             #             break
 
             # 匹配完成标志，如果考虑计算复杂度，可以设置差值
-            if matched_roads_num >= len(copy_traffic_graph.edges):
-            # if matched_roads_num >= 20:
+            if matched_roads_num >= len(copy_traffic_graph.nodes) // 5:
+                print(f"The match is successful <{matched_roads_num}>")
                 finish_one_flag = True
                 matched_roads_num = 0
-                print("完成一个图~~~~~~~~~~~~~~~")
 
-        print(multi_traffic_graph)
+        print(self.multi_traffic_graph)
 
 
-BayesianEstimate().generate_multi_traffic_graph()
+if __name__ == '__main__':
+    BayesianEstimate().generate_multi_traffic_graph()
 
 
