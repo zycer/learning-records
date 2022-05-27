@@ -13,10 +13,10 @@ class BayesianEstimate:
     def __init__(self):
         self.basic_graph = None
         self.time_frame = 6000
-        self.db_handler = DBManager()
-        self.get_basic_traffic_graph()
         self.roads_dict = {}
         self.intersection_dict = {}
+        self.db_handler = DBManager()
+        self.get_basic_traffic_graph()
 
     def get_basic_traffic_graph(self):
         road_data = [get_road_data(road_file) for road_file in
@@ -40,7 +40,8 @@ class BayesianEstimate:
                 self.intersection_dict[intersec_attr_dict["node_id"]] = intersec_attr_dict
                 # traffic_graph.add_node(intersec_attr_dict["node_id"], **intersec_attr_dict)
 
-        for road_one in self.roads_dict:
+        for road_one in self.roads_dict.values():
+            print(road_one)
             link_id = road_one["link_id"]
             del road_one["link_id"]
             traffic_graph.add_node(link_id, road_attr=tuple([value for value in road_one]))
@@ -101,8 +102,8 @@ class BayesianEstimate:
             #             break
 
             # 匹配完成标志，如果考虑计算复杂度，可以设置差值
-            # if matched_roads_num >= len(copy_traffic_graph.edges):
-            if matched_roads_num >= 20:
+            if matched_roads_num >= len(copy_traffic_graph.edges):
+            # if matched_roads_num >= 20:
                 finish_one_flag = True
                 matched_roads_num = 0
                 print("完成一个图~~~~~~~~~~~~~~~")
@@ -110,6 +111,6 @@ class BayesianEstimate:
         print(multi_traffic_graph)
 
 
-# BayesianEstimate().generate_multi_traffic_graph()
+BayesianEstimate().generate_multi_traffic_graph()
 
 
