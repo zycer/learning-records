@@ -41,3 +41,13 @@ def get_intersection_data(interaction_path):
     intersection_ids = intersection_data["node_id"].values
     return zip(intersection_ids, intersection_names, longitudes, latitudes)
 
+
+def get_graph_data(graph_path):
+    graph_data = pd.read_csv(graph_path, encoding="utf-8", sep=",")
+    from_ids = graph_data["from_id"].values
+    to_ids = graph_data["to_id"].values
+    node_ids = graph_data["node_id"].values
+    return zip(from_ids, to_ids, node_ids)
+
+
+
