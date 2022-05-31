@@ -759,9 +759,6 @@ class Main:
         self.mu = mu
         self.sigma = sigma
         self.beta = beta
-
-        with open("conf.json") as f:
-            self.conf = json.load(f)
         self.trajectory_data = dict()
         print("加载路网数据...")
         self.road_graph = RoadNetworkGraph()
@@ -894,14 +891,6 @@ class Main:
         # plt.legend(loc=0, ncol=2)
         # plt.show()
 
-    def load_trajectory(self):
-        file_path = "data/gps_trajectory"
-        self.trajectory_data.clear()
-
-        for file_name in os.listdir(file_path):
-            tra_data = pd.read_csv(os.path.join(file_path, file_name), sep=",", encoding="utf-8", iterator=True)
-            self.trajectory_data[file_name] = tra_data
-
     def main(self):
         try:
             while True:
@@ -923,23 +912,11 @@ class Main:
             # raise Exception
 
 
-
 def plot_road(road_obj, is_label=False):
     args = {"color": "#33ccff", "alpha": 0.6}
     if is_label:
         args["label"] = "roads"
     plt.plot([temp[0] for temp in road_obj.road_nodes], [temp[1] for temp in road_obj.road_nodes], **args)
-
-
-def load_trajectory():
-    file_path = "data/gps_trajectory"
-    trajectory = OrderedDict()
-
-    for file in os.listdir(file_path):
-        with open(os.path.join(file_path, "shenzhen0.csv"), encoding="utf-8") as f:
-            trajectory[file] = [list(map(float, point.strip().split(",")[1:])) for point in f.readlines()[1:]]
-
-    return trajectory
 
 
 if __name__ == "__main__":
