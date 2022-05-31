@@ -4,6 +4,8 @@ import time
 import os
 import numpy as np
 import pandas as pd
+import redis
+
 from kd_tree2 import KNN
 from queue import PriorityQueue
 from collections import OrderedDict
@@ -108,6 +110,7 @@ class RoadNetworkGraph:
         self.road_data_files = os.listdir(self.road_path)
         self.vertex_data_files = os.listdir(self.vertex_path)
         self.db_handler = DBManager()
+        self.temp_shortest_path = {}
 
     def save_road_network_data(self):
         """
@@ -268,6 +271,8 @@ class RoadNetworkGraph:
         :param goal:
         :return:
         """
+
+
         if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
             if start.idx == goal.idx:
                 return [goal.fro, start.to]
@@ -277,6 +282,15 @@ class RoadNetworkGraph:
         else:
             start_id = start
             goal_id = goal
+
+        if start_id in self.temp_shortest_path.keys():
+            if goal_id in self.temp_shortest_path[start_id].keys():
+                return self.temp_shortest_path[start_id][goal_id]
+            else:
+                self.temp_shortest_path[start_id][goal_id] = []
+        else:
+            self.temp_shortest_path[start_id] = {}
+            self.temp_shortest_path[start_id][goal_id] = []
 
         class TempPriority:
             def __init__(self, vertex_id, cost):
@@ -300,7 +314,9 @@ class RoadNetworkGraph:
             if current.vertex_id == goal_id:
                 while not frontier.empty():
                     del came_from[frontier.get().vertex_id]
-                return list(came_from.keys())
+                shortest_path = list(came_from.keys())
+                self.temp_shortest_path[start_id][goal] = shortest_path
+                return shortest_path
 
             while not frontier.empty():
                 vertex_id = frontier.get().vertex_id
@@ -314,7 +330,7 @@ class RoadNetworkGraph:
                     priority = new_cost + self.heuristic(goal_id, next_vertex_id)
                     frontier.put(TempPriority(next_vertex_id, priority))
                     came_from[next_vertex_id] = current.vertex_id
-
+        self.temp_shortest_path[start_id][goal_id] = []
         return []
 
     def shortest_path_length(self, start, goal):
@@ -385,6 +401,7 @@ class AIVMM:
         self.sigma = sigma
         self.neighbor_num = neighbor_num
         self.candidate_graph_obj = None
+        self.shortest_path_dict = {}
         self.knn = KNN(self.road_graph.road_segment)
 
     # 位置和道路分析
@@ -709,7 +726,7 @@ class AIVMM:
             final_path.append(edge.fro if edge else None)
             final_path.append(edge.to if edge else None) if key == n - 2 else None
 
-        if is_show:
+        # if is_show:
             # print("所有候选点的局部最优路径：")
             # for i, lop in enumerate(lop_seq):
             #     print(f"采样点{i}: ", lop)
@@ -720,7 +737,7 @@ class AIVMM:
             # for edge in vote.values():
             #     table.add_row([edge.idx, edge.vote] if edge else [None, None])
             # print(table)
-            print("最终匹配路径: %s" % final_path)
+            # print("最终匹配路径: %s" % final_path)
 
             # print("路径对应的路段id：", end="")
             #
@@ -753,6 +770,15 @@ class Main:
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
         print("加载完成: ")
         print("道路数：%s, 路口数：%s" % (len(self.road_graph.road_segment), len(self.road_graph.vertex)))
+
+        redis_info = {
+            "host": "127.0.0.1",
+            "password": "",
+            "port": 6379,
+            "db": 0
+        }
+
+        self.r = redis.Redis(**redis_info, decode_responses=True)
 
     @classmethod
     def calculate_instant_speed(cls, trajectory, rate):
@@ -877,34 +903,25 @@ class Main:
             self.trajectory_data[file_name] = tra_data
 
     def main(self):
-        self.load_trajectory()
-        for tra_data in self.trajectory_data.values():
-            try:
-                tra_data.get_chunk(self.conf["matched_num"])
-                while True:
-                    tra_one = tra_data.get_chunk(1)
-                    trip_id = tra_one["TRIP_ID"].values[0]
-                    timestamp = tra_one["TIMESTAMP"].values[0]
-                    try:
-                        polyline = json.loads(tra_one["POLYLINE"].values[0])
-                        if len(polyline) < 2:
-                            raise json.decoder.JSONDecodeError("decoder", "JSONDecodeError", 866)
-
-                    except json.decoder.JSONDecodeError:
-                        print(f"{trip_id}: data type error")
+        try:
+            while True:
+                tra_data = self.r.rpop("trajectory")
+                if tra_data:
+                    tra_data = json.loads(tra_data)
+                    if len(tra_data["polyline"]) <= 2:
                         continue
                     t = time.time()
-                    try:
-                        self.match_candidate(polyline, timestamp)
-                        self.conf["matched_num"] += 1
-                        with open("conf.json", "w") as f:
-                            f.write(json.dumps(self.conf))
-                    except Exception as e:
-                        print("ERROR: ", e)
-                    print("匹配用时: %s\n" % (time.time() - t))
-            except StopIteration:
-                print("匹配结束")
-                break
+                    self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
+                    self.db_handler.exec_sql(f"UPDATE finish_flag set num=num+1 where file_name='{tra_data['file_name']}'")
+                    self.road_graph.temp_shortest_path.clear()
+                    print("匹配用时：", time.time() - t)
+                else:
+                    break
+        except Exception:
+            pass
+            # self.r.rpush("trajectory", json.dumps(tra_data))
+            # raise Exception
+
 
 
 def plot_road(road_obj, is_label=False):

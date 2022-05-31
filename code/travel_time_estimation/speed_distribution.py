@@ -12,7 +12,7 @@ from db_manager import DBManager
 class BayesianEstimate:
     def __init__(self):
         self.basic_graph = None
-        self.time_frame = 60000
+        self.time_frame = 6000000
         self.multi_traffic_graph = []
         self.roads_dict = {}
         self.intersection_dict = {}
@@ -103,13 +103,16 @@ class BayesianEstimate:
             #             matched_roads_num += 1
             #             break
 
-            # 匹配完成标志，如果考虑计算复杂度，可以设置差值
-            if matched_roads_num >= len(copy_traffic_graph.nodes) // 5:
+            # 匹配完成标志，如果考虑计算复杂度，可设置差值
+            if matched_roads_num >= len(copy_traffic_graph.nodes) // 4:
                 print(f"The match is successful <{matched_roads_num}>")
                 finish_one_flag = True
                 matched_roads_num = 0
 
-        print(self.multi_traffic_graph)
+        # for graph in self.multi_traffic_graph:
+        #     print(graph)
+
+        # print(self.multi_traffic_graph)
 
 
 if __name__ == '__main__':
