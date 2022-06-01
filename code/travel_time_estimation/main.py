@@ -897,8 +897,10 @@ class Main:
                 tra_data = self.r.rpop("trajectory")
                 if tra_data:
                     tra_data = json.loads(tra_data)
-                    if len(tra_data["polyline"]) <= 2 or len(tra_data["polyline"]) > 100:
+                    if len(tra_data["polyline"]) <= 2:
                         continue
+                    elif len(tra_data["polyline"]) > 100:
+                        tra_data["polyline"] = tra_data["polyline"][:100]
                     t = time.time()
                     self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
                     self.db_handler.exec_sql(f"UPDATE finish_flag set num=num+1 where file_name='{tra_data['file_name']}'")
