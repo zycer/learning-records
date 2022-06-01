@@ -897,7 +897,7 @@ class Main:
                 tra_data = self.r.rpop("trajectory")
                 if tra_data:
                     tra_data = json.loads(tra_data)
-                    if len(tra_data["polyline"]) <= 2:
+                    if len(tra_data["polyline"]) <= 2 or len(tra_data["polyline"]) > 100:
                         continue
                     t = time.time()
                     self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
