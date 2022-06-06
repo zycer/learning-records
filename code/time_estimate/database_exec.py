@@ -20,9 +20,11 @@ def update_data():
         db_handler.exec_sql(insert_sql)
 
     if exists:
+        update_sql = "UPDATE history_road_data SET history=CASE road_id "
         for road_id, history_data in exists.items():
-            update_sql = f"UPDATE history_road_data SET history=concat_ws(';',history,'{json.dumps(history_data)}') where road_id={road_id}"
-            db_handler.exec_sql(update_sql)
+            update_sql += f"WHEN {road_id} THEN concat_ws(';',history,'{json.dumps(history_data)}') "
+        update_sql += f"END WHERE road_id IN ({','.join(exists.keys())})"
+        db_handler.exec_sql(update_sql)
 
     db_handler.exec_sql(f"UPDATE finish_flag set num=num+{matched_num} where file_name='train.csv'")
 
