@@ -1,6 +1,5 @@
 import json
 import time
-import math
 
 import redis
 from utils.constants import REDIS_INFO
