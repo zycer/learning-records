@@ -36,6 +36,7 @@ def show_menu():
     print("1：创建进程")
     print("2：已完成数据量")
     print("3：已匹配道路量")
+    print("4：持久化数据")
     print("0：退出")
     print('-' * 30)
 
@@ -62,6 +63,7 @@ def start_cmd(process_num):
 
 def execute(flag):
     if flag == "1":
+        pyperclip.copy("python main.py")
         print("1：自动创建")
         print("2：手动创建")
         flag2 = input("请输入：")
@@ -84,6 +86,10 @@ def execute(flag):
     elif flag == "3":
         result = db_handler.exec_sql("SELECT COUNT(*) from history_road_data")
         print("已匹配道路数量：", result[0][0])
+    elif flag == "4":
+        pyperclip.copy("python database_exec.py")
+        start_cmd(1)
+
     elif flag == "0":
         win32gui.EnumWindows(window_enum_callback, 0)
         for key, value in hwnd_title.items():
@@ -97,7 +103,6 @@ def execute(flag):
 if __name__ == '__main__':
     hwnd_title = {}
     db_handler = DBManager()
-    pyperclip.copy("python main.py")
     listener = Thread(target=listening_task.listening_task)
     listener.start()
 

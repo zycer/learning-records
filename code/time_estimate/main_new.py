@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from prettytable import PrettyTable
 from utils.db_manager import DBManager
 from utils.constants import ROAD_MAX_SPEED as RMS, REDIS_INFO
-from utils.json_util import NpEncoder
 
 
 class CandidateGraph:
@@ -896,17 +895,33 @@ class Main:
                 tra_data = self.r.rpop("trajectory")
                 if tra_data:
                     tra_data = json.loads(tra_data)
-                    if len(tra_data["polyline"]) <= 2:
+                    len_tra_data = len(tra_data["polyline"])
+                    if len_tra_data < 3:
+                        print("跳过数据: ", tra_data["timestamp"])
+                        self.db_handler.exec_sql("UPDATE finish_flag set num=num+1 WHERE file_name='train.csv'")
                         continue
-                    elif len(tra_data["polyline"]) > 100:
-                        tra_data["polyline"] = tra_data["polyline"][:100]
-                    t = time.time()
-                    self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
-                    # self.db_handler.exec_sql(f"UPDATE finish_flag set num=num+1 where file_name='{tra_data['file_name']}'")
+                    elif len_tra_data <= 100:
+                        t = time.time()
+                        self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
+                        print("总匹配用时：", time.time() - t)
+                        # self.db_handler.exec_sql("UPDATE finish_flag set num=num+1 WHERE file_name='train.csv'")
+                        # continue
+                    else:
+                        tt = time.time()
+                        while len_tra_data // 100:
+                            t = time.time()
+                            temp_tra = tra_data["polyline"][:100]
+                            self.match_candidate(temp_tra, tra_data["timestamp"])
+                            tra_data["polyline"] = tra_data["polyline"][100:]
+                            len_tra_data = len(tra_data["polyline"])
+                            print("分解匹配用时：", time.time() - t)
+                        if len(tra_data["polyline"]) > 2:
+                            self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
+                        print("总匹配用时：", time.time() - tt)
+
                     self.road_graph.temp_shortest_path.clear()
-                    print("匹配用时：", time.time() - t)
                 else:
-                    print("lalal")
+                    print("所有数据匹配完成")
                     break
         except Exception:
             raise
