@@ -30,14 +30,13 @@ class CandidateGraph:
             self.weight = None
             self.vote = 0
 
-    def __init__(self, check_legitimate_path_func, observation_probability_func, path_weight_func, road_segment):
+    def __init__(self, check_legitimate_path_func, observation_probability_func, road_segment):
         self.vertex = {}
         self.edge = {}
         self.adjacency_table = {}
         self.road_segment = road_segment
         self.check_legitimate_path_func = check_legitimate_path_func
         self.observation_probability_func = observation_probability_func
-        self.path_weight_func = path_weight_func
 
     def generate_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         for i in range(len(candidate_points) - 1):
@@ -57,9 +56,9 @@ class CandidateGraph:
                                                        self.road_segment[candidate_roads[i + 1][k]]):
                         edge_id = f"{i}&{j}|{i + 1}&{k}"
                         edge = self.Edge(edge_id, f"{i}&{j}", f"{i + 1}&{k}")
-                        edge.weight = self.path_weight_func(trajectory[i], trajectory[i + 1],
-                                                            candidate_points[i + 1][j], candidate_roads[i][j],
-                                                            candidate_roads[i + 1][k])
+                        # edge.weight = self.path_weight_func(trajectory[i], trajectory[i + 1],
+                        #                                     candidate_points[i + 1][j], candidate_roads[i][j],
+                        #                                     candidate_roads[i + 1][k])
                         self.edge[edge_id] = edge
                         self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
 
@@ -524,8 +523,10 @@ class AIVMM:
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    weight_list.append(self.path_weight(trajectory[i], trajectory[i + 1], point_k,
-                                                        candidate_roads[i][j], candidate_roads[i + 1][k]))
+                    a = self.path_weight(trajectory[i], trajectory[i + 1], point_k,
+                                                        candidate_roads[i][j], candidate_roads[i + 1][k])
+                    print(a)
+                    weight_list.append(a)
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
             matrix_list.append(matrix)
@@ -691,7 +692,7 @@ class AIVMM:
 
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
-                                             self.path_weight, self.road_graph.road_segment)
+                                             self.road_graph.road_segment)
         # haoshi
         candidate_graph_obj.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
 
@@ -784,7 +785,7 @@ class Main:
 
         return instantaneous_velocity
 
-    def match_candidate(self, trajectory, timestamp, rate=15):
+    def match_candidate(self, trajectory, timestamp, is_show=False, rate=15):
         matched_result, match_time = self.aivmm.knn.matched_knn(trajectory)
 
         candidate_distance = []
@@ -857,37 +858,38 @@ class Main:
         # print()
 
         # 画图
-        # plt.figure(figsize=(10, 10))
-        # plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
-        #             label='sample points')
-        # x_list = []
-        # y_list = []
-        # for candi in candidate_points:
-        #     for point in candi:
-        #         x_list.append(point[0])
-        #         y_list.append(point[1])
-        #
-        # plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
-        #
-        # for i, candi_roads in enumerate(candidate_roads):
-        #     for j, road_id in enumerate(candi_roads):
-        #         if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
-        #             is_label = True
-        #         else:
-        #             is_label = False
-        #         plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
-        #
-        # x_list = []
-        # y_list = []
-        # for p in final_path:
-        #     if p is not None:
-        #         i, j = list(map(int, p.split("&")))
-        #         x_list.append(candidate_points[i][j][0])
-        #         y_list.append(candidate_points[i][j][1])
-        #
-        # plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
-        # plt.legend(loc=0, ncol=2)
-        # plt.show()
+        if is_show:
+            plt.figure(figsize=(10, 10))
+            plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
+                        label='sample points')
+            x_list = []
+            y_list = []
+            for candi in candidate_points:
+                for point in candi:
+                    x_list.append(point[0])
+                    y_list.append(point[1])
+
+            plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
+
+            for i, candi_roads in enumerate(candidate_roads):
+                for j, road_id in enumerate(candi_roads):
+                    if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
+                        is_label = True
+                    else:
+                        is_label = False
+                    plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
+
+            x_list = []
+            y_list = []
+            for p in final_path:
+                if p is not None:
+                    i, j = list(map(int, p.split("&")))
+                    x_list.append(candidate_points[i][j][0])
+                    y_list.append(candidate_points[i][j][1])
+
+            plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
+            plt.legend(loc=0, ncol=2)
+            plt.show()
 
     def main(self):
         try:
