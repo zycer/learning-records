@@ -270,8 +270,6 @@ class RoadNetworkGraph:
         :param goal:
         :return:
         """
-
-
         if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
             if start.idx == goal.idx:
                 return [goal.fro, start.to]
@@ -523,10 +521,8 @@ class AIVMM:
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    a = self.path_weight(trajectory[i], trajectory[i + 1], point_k,
-                                                        candidate_roads[i][j], candidate_roads[i + 1][k])
-                    print(a)
-                    weight_list.append(a)
+                    weight_list.append(self.path_weight(trajectory[i], trajectory[i + 1], point_k,
+                                                        candidate_roads[i][j], candidate_roads[i + 1][k]))
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
             matrix_list.append(matrix)
@@ -616,7 +612,10 @@ class AIVMM:
         :param road_b: 点b
         :return: 是否可达
         """
-        return True if self.get_shortest_path_length(road_a, road_b) else False
+        res = True if self.get_shortest_path_length(road_a, road_b) else False
+        if not res:
+            print(road_a.idx, road_b.idx)
+        return res
 
     def find_local_optimal_path(self, omega_i, phi_i, candi_count, n, i, k):
         """
@@ -806,7 +805,9 @@ class Main:
             candidate_roads.append(road_temp)
             candidate_points.append(point_temp)
 
+        print(candidate_points)
         final_path = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
+        print(final_path)
 
         speed_dict = {}
         instant_speed = self.calculate_instant_speed(trajectory, rate)
