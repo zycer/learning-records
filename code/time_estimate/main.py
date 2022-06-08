@@ -13,7 +13,7 @@ from geopy.distance import geodesic
 import matplotlib.pyplot as plt
 from prettytable import PrettyTable
 from utils.db_manager import DBManager
-from utils.constants import ROAD_MAX_SPEED as RMS
+from utils.constants import ROAD_MAX_SPEED as RMS, REDIS_INFO
 
 
 class CandidateGraph:
@@ -30,14 +30,13 @@ class CandidateGraph:
             self.weight = None
             self.vote = 0
 
-    def __init__(self, check_legitimate_path_func, observation_probability_func, path_weight_func, road_segment):
+    def __init__(self, check_legitimate_path_func, observation_probability_func, road_segment):
         self.vertex = {}
         self.edge = {}
         self.adjacency_table = {}
         self.road_segment = road_segment
         self.check_legitimate_path_func = check_legitimate_path_func
         self.observation_probability_func = observation_probability_func
-        self.path_weight_func = path_weight_func
 
     def generate_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         for i in range(len(candidate_points) - 1):
@@ -57,9 +56,9 @@ class CandidateGraph:
                                                        self.road_segment[candidate_roads[i + 1][k]]):
                         edge_id = f"{i}&{j}|{i + 1}&{k}"
                         edge = self.Edge(edge_id, f"{i}&{j}", f"{i + 1}&{k}")
-                        edge.weight = self.path_weight_func(trajectory[i], trajectory[i + 1],
-                                                            candidate_points[i + 1][j], candidate_roads[i][j],
-                                                            candidate_roads[i + 1][k])
+                        # edge.weight = self.path_weight_func(trajectory[i], trajectory[i + 1],
+                        #                                     candidate_points[i + 1][j], candidate_roads[i][j],
+                        #                                     candidate_roads[i + 1][k])
                         self.edge[edge_id] = edge
                         self.adjacency_table[f"{i}&{j}"][f"{i + 1}&{k}"] = edge_id
 
@@ -524,8 +523,10 @@ class AIVMM:
             weight_list = []
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    weight_list.append(self.path_weight(trajectory[i], trajectory[i + 1], point_k,
-                                                        candidate_roads[i][j], candidate_roads[i + 1][k]))
+                    a = self.path_weight(trajectory[i], trajectory[i + 1], point_k,
+                                                        candidate_roads[i][j], candidate_roads[i + 1][k])
+                    print(a)
+                    weight_list.append(a)
             matrix = np.matrix(np.array(weight_list).reshape(
                 len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
             matrix_list.append(matrix)
@@ -691,7 +692,7 @@ class AIVMM:
 
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
-                                             self.path_weight, self.road_graph.road_segment)
+                                             self.road_graph.road_segment)
         # haoshi
         candidate_graph_obj.generate_candidate_graph(trajectory, candidate_roads, candidate_points)
 
@@ -768,14 +769,9 @@ class Main:
         print("加载完成: ")
         print("道路数：%s, 路口数：%s" % (len(self.road_graph.road_segment), len(self.road_graph.vertex)))
 
-        redis_info = {
-            "host": "127.0.0.1",
-            "password": "",
-            "port": 6379,
-            "db": 0
-        }
 
-        self.r = redis.Redis(**redis_info, decode_responses=True)
+
+        self.r = redis.Redis(**REDIS_INFO, decode_responses=True)
 
     @classmethod
     def calculate_instant_speed(cls, trajectory, rate):
@@ -789,7 +785,7 @@ class Main:
 
         return instantaneous_velocity
 
-    def match_candidate(self, trajectory, timestamp, rate=15):
+    def match_candidate(self, trajectory, timestamp, is_show=False, rate=15):
         matched_result, match_time = self.aivmm.knn.matched_knn(trajectory)
 
         candidate_distance = []
@@ -819,8 +815,8 @@ class Main:
             if final_path[i] is not None and final_path[i + 1]:
                 sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
                 sample_index_cur, candi_index_cur = map(int, final_path[i + 1].split('&'))
-                pre_road_id = candidate_roads[sample_index_pre][candi_index_pre]
-                cur_road_id = candidate_roads[sample_index_cur][candi_index_cur]
+                pre_road_id = candidate_roads[sample_index_pre][candi_index_pre].item()
+                cur_road_id = candidate_roads[sample_index_cur][candi_index_cur].item()
 
                 if pre_road_id not in speed_dict.keys():
                     speed_dict[pre_road_id] = []
@@ -836,60 +832,64 @@ class Main:
         for road_id, speed_list in speed_dict.items():
             self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
 
+        matched_info = {"road_info": speed_dict, "timestamp": timestamp}
+        self.r.lpush("matched_result", json.dumps(matched_info))
+
         # print("匹配道路的速度值：")
         # table = PrettyTable(["路段id", "时刻", "速度列表", "平均速度"])
-        for key, value in speed_dict.items():
-            speed = np.around(np.mean(value), 2).item()
-            timestamp = timestamp.item() if isinstance(timestamp, np.int64) else timestamp
-            key = key.item()
-            road_obj = self.db_handler.exec_sql(f"SELECT * FROM history_road_data WHERE road_id='{key}'")
-            if road_obj:
-                history = json.loads(road_obj[0][1])
-                history[str(timestamp)] = speed
-                average_speed = sum(history.values()) / len(history)
-                self.db_handler.exec_sql(
-                    f"UPDATE history_road_data set history='{json.dumps(history)}',average_speed={average_speed} WHERE road_id='{key}'")
-            else:
-                history = {str(timestamp): speed}
-                self.db_handler.exec_sql(
-                    f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed}, '{self.road_graph.road_segment[key].fro}','{self.road_graph.road_segment[key].to}')")
+        # for key, value in speed_dict.items():
+        #     speed = np.around(np.mean(value), 2).item()
+        #     timestamp = timestamp.item() if isinstance(timestamp, np.int64) else timestamp
+        #     key = key.item()
+        #     road_obj = self.db_handler.exec_sql(f"SELECT * FROM history_road_data WHERE road_id='{key}'")
+        #     if road_obj:
+        #         history = json.loads(road_obj[0][1])
+        #         history[str(timestamp)] = speed
+        #         average_speed = sum(history.values()) / len(history)
+        #         self.db_handler.exec_sql(
+        #             f"UPDATE history_road_data set history='{json.dumps(history)}',average_speed={average_speed} WHERE road_id='{key}'")
+        #     else:
+        #         history = {str(timestamp): speed}
+        #         self.db_handler.exec_sql(
+        #             f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed}, '{self.road_graph.road_segment[key].fro}','{self.road_graph.road_segment[key].to}')")
             # table.add_row([key, timestamp, value, speed])
 
         # print(table)
         # print()
 
         # 画图
-        # plt.figure(figsize=(10, 10))
-        # plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
-        #             label='sample points')
-        # x_list = []
-        # y_list = []
-        # for candi in candidate_points:
-        #     for point in candi:
-        #         x_list.append(point[0])
-        #         y_list.append(point[1])
-        #
-        # plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
-        #
-        # for i, candi_roads in enumerate(candidate_roads):
-        #     for j, road_id in enumerate(candi_roads):
-        #         if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
-        #             is_label = True
-        #         else:
-        #             is_label = False
-        #         plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
-        #
-        # x_list = []
-        # y_list = []
-        # for p in final_path:
-        #     if p is not None:
-        #         i, j = list(map(int, p.split("&")))
-        #         x_list.append(candidate_points[i][j][0])
-        #         y_list.append(candidate_points[i][j][1])
-        #
-        # plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
-        # plt.legend(loc=0, ncol=2)
-        # plt.show()
+        if is_show:
+            plt.figure(figsize=(10, 10))
+            plt.scatter([temp[0] for temp in trajectory], [temp[1] for temp in trajectory], color="blue",
+                        label='sample points')
+            x_list = []
+            y_list = []
+            for candi in candidate_points:
+                for point in candi:
+                    x_list.append(point[0])
+                    y_list.append(point[1])
+
+            plt.scatter(x_list, y_list, color="#99ff66", alpha=0.5, label="candidate points")
+
+            for i, candi_roads in enumerate(candidate_roads):
+                for j, road_id in enumerate(candi_roads):
+                    if i == len(candidate_roads) - 1 and j == len(candi_roads) - 1:
+                        is_label = True
+                    else:
+                        is_label = False
+                    plot_road(self.road_graph.road_segment[road_id], is_label=is_label)
+
+            x_list = []
+            y_list = []
+            for p in final_path:
+                if p is not None:
+                    i, j = list(map(int, p.split("&")))
+                    x_list.append(candidate_points[i][j][0])
+                    y_list.append(candidate_points[i][j][1])
+
+            plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
+            plt.legend(loc=0, ncol=2)
+            plt.show()
 
     def main(self):
         try:
@@ -897,19 +897,36 @@ class Main:
                 tra_data = self.r.rpop("trajectory")
                 if tra_data:
                     tra_data = json.loads(tra_data)
-                    if len(tra_data["polyline"]) <= 2:
+                    len_tra_data = len(tra_data["polyline"])
+                    if len_tra_data < 3:
+                        print("跳过数据: ", tra_data["timestamp"])
+                        self.db_handler.exec_sql("UPDATE finish_flag set num=num+1 WHERE file_name='train.csv'")
                         continue
-                    elif len(tra_data["polyline"]) > 100:
-                        tra_data["polyline"] = tra_data["polyline"][:100]
-                    t = time.time()
-                    self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
-                    self.db_handler.exec_sql(f"UPDATE finish_flag set num=num+1 where file_name='{tra_data['file_name']}'")
+                    elif len_tra_data <= 100:
+                        t = time.time()
+                        self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
+                        print("总匹配用时：", time.time() - t)
+                        # self.db_handler.exec_sql("UPDATE finish_flag set num=num+1 WHERE file_name='train.csv'")
+                        # continue
+                    else:
+                        tt = time.time()
+                        while len_tra_data // 100:
+                            t = time.time()
+                            temp_tra = tra_data["polyline"][:100]
+                            self.match_candidate(temp_tra, tra_data["timestamp"])
+                            tra_data["polyline"] = tra_data["polyline"][100:]
+                            len_tra_data = len(tra_data["polyline"])
+                            print("分解匹配用时：", time.time() - t)
+                        if len(tra_data["polyline"]) > 2:
+                            self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
+                        print("总匹配用时：", time.time() - tt)
+
                     self.road_graph.temp_shortest_path.clear()
-                    print("匹配用时：", time.time() - t)
                 else:
+                    print("所有数据匹配完成")
                     break
         except Exception:
-            pass
+            raise
             # self.r.rpush("trajectory", json.dumps(tra_data))
             # raise Exception
 
