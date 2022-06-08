@@ -1,3 +1,4 @@
+import copy
 import json
 import math
 import time
@@ -271,7 +272,6 @@ class RoadNetworkGraph:
         :return:
         """
 
-
         if isinstance(start, RoadNetworkGraph.RoadSegment) and isinstance(goal, RoadNetworkGraph.RoadSegment):
             if start.idx == goal.idx:
                 return [goal.fro, start.to]
@@ -401,6 +401,9 @@ class AIVMM:
         self.neighbor_num = neighbor_num
         self.candidate_graph_obj = None
         self.shortest_path_dict = {}
+        self.temp_trajectory = None
+        self.temp_candidate_roads = None
+        self.temp_candidate_points = None
         self.knn = KNN(self.road_graph.road_segment)
 
     # 位置和道路分析
@@ -519,17 +522,29 @@ class AIVMM:
         静态评分矩阵
         """
         matrix_list = []
+        remove_index = []
         for i in range(len(candidate_points) - 1):
             weight_list = []
+            not_satisfied_num = 0
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    a = self.path_weight(trajectory[i], trajectory[i + 1], point_k,
-                                                        candidate_roads[i][j], candidate_roads[i + 1][k])
-                    print(a)
-                    weight_list.append(a)
-            matrix = np.matrix(np.array(weight_list).reshape(
-                len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
-            matrix_list.append(matrix)
+                    weight_value = self.path_weight(trajectory[i], trajectory[i + 1], point_k,
+                                                    candidate_roads[i][j], candidate_roads[i + 1][k])
+                    if weight_value < 10e-5:
+                        not_satisfied_num += 1
+
+                    weight_list.append(weight_value)
+
+            if not_satisfied_num == len(candidate_points[i]) * len(candidate_points[i + 1]):
+                remove_index.append(i+1)
+            else:
+                matrix = np.matrix(np.array(weight_list).reshape(
+                    len(candidate_points[i]), len(candidate_points[i + 1])), copy=True)
+                matrix_list.append(matrix)
+
+        self.temp_trajectory = [self.temp_trajectory[i] for i in range(len(self.temp_trajectory)) if (i not in remove_index)]
+        self.temp_candidate_roads = [self.temp_candidate_roads[i] for i in range(len(self.temp_candidate_roads)) if (i not in remove_index)]
+        self.temp_candidate_points = [self.temp_candidate_points[i] for i in range(len(self.temp_candidate_points)) if (i not in remove_index)]
 
         score_matrix = np.matrix([])
         for matrix in matrix_list:
@@ -575,13 +590,13 @@ class AIVMM:
         加权得分矩阵
         """
         static_score_matrix = self.static_score_matrix(trajectory, candidate_roads, candidate_points)
-        distance_weight_matrix = self.distance_weight_matrix(trajectory)
+        distance_weight_matrix = self.distance_weight_matrix(self.temp_trajectory)
         phi_list = []
         phi_matrix_list = []
 
-        for i in range(len(trajectory)):
+        for i in range(len(self.temp_trajectory)):
             phi_i_list = []
-            for j in range(len(trajectory) - 1):
+            for j in range(len(self.temp_trajectory) - 1):
                 if 0 <= j <= i:
                     phi_ij = distance_weight_matrix[i][j - 1][j - 1] * static_score_matrix[j]
                 else:
@@ -671,17 +686,18 @@ class AIVMM:
         local_optimal_path_sequence = []
         f_value_sequence = []
 
-        candi_count = [len(points) for points in candidate_points]
         # haoshi
-        self.candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
-        for i, points in enumerate(candidate_points):
+        self.candidate_graph_obj = self.create_candidate_graph(self.temp_trajectory, self.temp_candidate_roads, self.temp_candidate_points)
+        candi_count = [len(points) for points in self.temp_candidate_points]
+
+        for i, points in enumerate(self.temp_candidate_points):
             phi_i = phi_list[i]
             lop_i = []
             f_value_i = []
             for k in range(len(points)):
                 local_optimal_path, f_value = self.find_local_optimal_path(distance_weight_matrix[i], phi_i,
-                                                                           candi_count, len(trajectory), i, k)
+                                                                           candi_count, len(self.temp_trajectory), i, k)
                 lop_i.append(local_optimal_path)
                 f_value_i.append(f_value)
 
@@ -700,9 +716,12 @@ class AIVMM:
         return candidate_graph_obj
 
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points, is_show=True):
-        n = len(trajectory)
-        final_path = []
+        self.temp_trajectory = copy.deepcopy(trajectory)
+        self.temp_candidate_roads = copy.deepcopy(candidate_roads)
+        self.temp_candidate_points = copy.deepcopy(candidate_points)
         lop_seq, f_value_seq = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        n = len(self.temp_trajectory)
+        final_path = []
 
         for lop in lop_seq:
             for item in lop:
@@ -728,29 +747,29 @@ class AIVMM:
             final_path.append(edge.to if edge else None) if key == n - 2 else None
 
         # if is_show:
-            # print("所有候选点的局部最优路径：")
-            # for i, lop in enumerate(lop_seq):
-            #     print(f"采样点{i}: ", lop)
-            # print()
+        # print("所有候选点的局部最优路径：")
+        # for i, lop in enumerate(lop_seq):
+        #     print(f"采样点{i}: ", lop)
+        # print()
 
-            # print("投票结果：")
-            # table = PrettyTable(["边", "票数"])
-            # for edge in vote.values():
-            #     table.add_row([edge.idx, edge.vote] if edge else [None, None])
-            # print(table)
-            # print("最终匹配路径: %s" % final_path)
+        # print("投票结果：")
+        # table = PrettyTable(["边", "票数"])
+        # for edge in vote.values():
+        #     table.add_row([edge.idx, edge.vote] if edge else [None, None])
+        # print(table)
+        # print("最终匹配路径: %s" % final_path)
 
-            # print("路径对应的路段id：", end="")
-            #
-            # temp = []
-            # for point in final_path:
-            #     if point is not None:
-            #         i, j = map(int, point.split('&'))
-            #         temp.append(candidate_roads[i][j])
-            #     else:
-            #         temp.append(None)
-            # print(temp)
-            # print("-" * 140)
+        # print("路径对应的路段id：", end="")
+        #
+        # temp = []
+        # for point in final_path:
+        #     if point is not None:
+        #         i, j = map(int, point.split('&'))
+        #         temp.append(candidate_roads[i][j])
+        #     else:
+        #         temp.append(None)
+        # print(temp)
+        # print("-" * 140)
 
         return final_path
 
@@ -768,8 +787,6 @@ class Main:
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
         print("加载完成: ")
         print("道路数：%s, 路口数：%s" % (len(self.road_graph.road_segment), len(self.road_graph.vertex)))
-
-
 
         self.r = redis.Redis(**REDIS_INFO, decode_responses=True)
 
@@ -852,7 +869,7 @@ class Main:
         #         history = {str(timestamp): speed}
         #         self.db_handler.exec_sql(
         #             f"INSERT INTO history_road_data VALUES ('{key}','{json.dumps(history)}',{speed}, '{self.road_graph.road_segment[key].fro}','{self.road_graph.road_segment[key].to}')")
-            # table.add_row([key, timestamp, value, speed])
+        # table.add_row([key, timestamp, value, speed])
 
         # print(table)
         # print()
