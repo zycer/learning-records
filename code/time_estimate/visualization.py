@@ -1,25 +1,28 @@
+import os
 import folium
 import webbrowser
+import pandas as pd
+import random
 
 
-def save_map(map_obj):
-    map_name = "porto.html"
-    map_obj.save(map_name)
+def save_map(map_obj, map_name):
+    map_name = map_name.replace(".csv", ".html")
+    map_file_path = os.path.join("data/temp", map_name)
+    map_obj.save(map_file_path)
     search_text = "cdn.jsdelivr.net"
     replace_text = "fastly.jsdelivr.net"
 
-    with open(map_name, 'r', encoding='UTF-8') as file:
+    with open(map_file_path, 'r', encoding='UTF-8') as file:
         data = file.read()
         data = data.replace(search_text, replace_text)
 
-    with open(map_name, 'w', encoding='UTF-8') as file:
+    with open(map_file_path, 'w', encoding='UTF-8') as file:
         file.write(data)
 
-    webbrowser.open(map_name, new=True)
+    webbrowser.open(map_file_path, new=True)
 
 
-if __name__ == '__main__':
-    # tiles: OpenStreetMap, Stamen Terrain, Stamen Toner, Mapbox Bright, Mapbox Control Room
+def create_map(candi_file, start, end):
     tiles = {
         0: "OpenStreetMap",
         1: "Stamen Terrain",
@@ -27,49 +30,70 @@ if __name__ == '__main__':
         3: "Mapbox Bright",
         4: "Mapbox Control Room"
     }
+    radius = 7
     porto_map = folium.Map([41.141412, -8.618643], tiles=tiles[1], zoom_start=16)
+    dataframe = pd.read_csv(candi_file, encoding="utf-8", sep=",")
+    candi_data = dataframe.iloc[start:end]
+    data_iter = zip(list(candi_data["trajectory"].values), list(candi_data["candidate_points"].values),
+                    list(candi_data["final_path"].values), list(candi_data["timestamp"].values),
+                    list(candi_data["candidate_segments"]))
 
-    lines = [[-8.618643, 41.141412], [-8.618499, 41.141376], [-8.620326, 41.14251], [-8.622153, 41.143815],
-             [-8.623953, 41.144373], [-8.62668, 41.144778], [-8.627373, 41.144697], [-8.630226, 41.14521],
-             [-8.632746, 41.14692], [-8.631738, 41.148225], [-8.629938, 41.150385], [-8.62911, 41.151213],
-             [-8.629128, 41.15124], [-8.628786, 41.152203], [-8.628687, 41.152374], [-8.628759, 41.152518],
-             [-8.630838, 41.15268], [-8.632323, 41.153022], [-8.631144, 41.154489], [-8.630829, 41.154507],
-             [-8.630829, 41.154516], [-8.630829, 41.154498], [-8.630838, 41.154489]]
+    for index_1, data in enumerate(data_iter):
+        color_list = []
+        for index_2, point in enumerate(eval(data[0])):
+            if first_flag:
+                current_color = "#%06x" % random.randint(0, 0xFFFFFF)
+                color_list.append(current_color)
+            else:
+                current_color = colors[index_1][index_2]
 
-    candidate_points = [[(-8.618612232195217, 41.14145053169523), (-8.6187144, 41.1414968)],
-                        [(-8.618485363702824, 41.14139307726712), (-8.6183463, 41.1413301)],
-                        [(-8.620296583045112, 41.14253432693658), (-8.620296583045112, 41.14253432693658)],
-                        [(-8.6220438, 41.1437713), (-8.622155126471483, 41.143811674889214)],
-                        [(-8.623949076810812, 41.1443802143426), (-8.6243174, 41.1444938)],
-                        [(-8.62667919882536, 41.14476041814725), (-8.62667919882536, 41.14476041814725)],
-                        [(-8.627371714212194, 41.144685986348414), (-8.6273413, 41.144688)],
-                        [(-8.630189766311068, 41.14524642029668), (-8.6301362, 41.1452162)],
-                        [(-8.6326775, 41.1468428), (-8.632770726678187, 41.146894920748615)],
-                        [(-8.631553, 41.1484527), (-8.631749219727814, 41.14823062105901)],
-                        [(-8.6299508, 41.1503011), (-8.62989625807505, 41.15036470529683)],
-                        [(-8.629145357978206, 41.151230764425925), (-8.6291323, 41.1512455)],
-                        [(-8.629134347839704, 41.15124318925744), (-8.6291323, 41.1512455)],
-                        [(-8.628812649032712, 41.152206876738404), (-8.6287691, 41.1523766)],
-                        [(-8.6287691, 41.1523766), (-8.628766782910837, 41.15238561990563)],
-                        [(-8.628743, 41.1524782), (-8.628743, 41.1524782)],
-                        [(-8.6308068, 41.1525922), (-8.630844896782078, 41.15259393090618)],
-                        [(-8.6323606, 41.152947), (-8.632350555842477, 41.15302403688915)],
-                        [(-8.6310274, 41.1545682), (-8.6310274, 41.1545682)],
-                        [(-8.6308755, 41.1545311), (-8.630824032439602, 41.15451854126358)],
-                        [(-8.6308755, 41.1545311), (-8.630827538018371, 41.15451939666007)],
-                        [(-8.6308755, 41.1545311), (-8.630820526861307, 41.154517685867184)],
-                        [(-8.6308755, 41.1545311), (-8.630825165886929, 41.15451881783614)]]
+            folium.Circle(radius=radius, location=(point[1], point[0]),
+                          popup=str(data[3]) + "(采样点)", color=current_color, fill=True, fill_opacity=0.0).add_to(porto_map)
 
-    final_path = ['0&1', '1&1', '2&1', '3&0', '4&1', '5&1', '6&1', '7&0', '8&0', '9&0', '10&0', '11&1', '12&1', '13&0',
-                  '14&0', '15&1', '16&0', '17&0', '18&1', '19&0', '20&0', '21&0', '22&0']
+        final_candidate = [eval(data[1])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
 
-    final_candidate = [candidate_points[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in final_path]
-    print(final_candidate)
+        for idx, candi_point in enumerate(final_candidate):
+            if first_flag:
+                color = color_list[idx]
+            else:
+                color = colors[index_1][idx]
+            folium.Circle(radius=radius, location=(candi_point[1], candi_point[0]),
+                          popup=str(data[3]) + "(匹配点)", color=color, fill=True, fill_opacity=0.7).add_to(porto_map)
 
-    tra = folium.PolyLine(locations=[[point[1], point[0]] for point in lines], color='red')
-    candi = folium.PolyLine(locations=[[point[1], point[0]] for point in final_candidate], color='blue')
+        # final_candi_segments = [eval(data[4])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
+        # for idx, segment in enumerate(final_candi_segments):
+        #     if first_flag:
+        #         color = color_list[idx]
+        #     else:
+        #         color = colors[index_1][idx]
+        #     point_a = segment[0]
+        #     point_b = segment[1]
+        #     folium.PolyLine(locations=[[point_a[1], point_a[0]],
+        #                                [point_b[1], point_b[0]]], color=color, weight=5).add_to(porto_map)
 
-    tra.add_to(porto_map)
-    candi.add_to(porto_map)
+        for idx, segments in enumerate(eval(data[4])):
+            color = color_list[idx] if first_flag else colors[index_1][idx]
+            weight = 1
+            for seg in segments:
+                point_a = seg[0]
+                point_b = seg[1]
+                folium.PolyLine(locations=[[point_a[1], point_a[0]],
+                                           [point_b[1], point_b[0]]], color=color, weight=weight, line_cap="square").add_to(porto_map)
+                weight += 1
+        colors.append(color_list)
+    return porto_map
 
-    save_map(porto_map)
+
+if __name__ == '__main__':
+    start = 3
+    end = start + 5
+    first_flag = True
+    colors = []
+    for num, file_name in enumerate(os.listdir("data/candidate_data")):
+        file_path = os.path.join("data/candidate_data", file_name)
+
+        if num > 0:
+            first_flag = False
+
+        porto_map = create_map(file_path, start, end)
+        save_map(porto_map, file_name)
