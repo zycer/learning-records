@@ -2,7 +2,7 @@ import MySQLdb
 import pandas as pd
 import numpy as np
 
-from constants import ROAD_MAX_SPEED as RMS
+from .constants import ROAD_MAX_SPEED as RMS
 
 
 def get_road_data(road_path):
