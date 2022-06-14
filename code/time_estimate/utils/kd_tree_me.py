@@ -11,7 +11,7 @@ from prettytable import PrettyTable
 
 
 class KNN:
-    def __init__(self, roads, neighbor_num=2):
+    def __init__(self, road_graph, neighbor_num=2):
         """
         param: trajectory: GPS轨迹点列表 [[x1, y1], [x2, y2],...]
         param: roads: 路网中所有道路
@@ -20,7 +20,6 @@ class KNN:
         self.segment_id_list: 与列表self.segment_lines对应顺序的道路真实id
         [[road_id1,road_id1,road_id2,...], [road_id3,...]]
         """
-        self.roads = roads
         self.neighbor_num = neighbor_num
         # self.segment_lines = []
         # self.segment_id_list = []
@@ -30,11 +29,19 @@ class KNN:
         self.roads_segments_id = []
 
         # qu diao 0
-        for road_id, road_obj in roads.items():
-            for i in range(len(road_obj.road_nodes) - 1):
-                self.roads_segments.append([[road_obj.road_nodes[i][0], road_obj.road_nodes[i][1]],
-                                            [road_obj.road_nodes[i + 1][0], road_obj.road_nodes[i + 1][1]]])
-                self.roads_segments_id.append(road_id)
+
+        for road_idx in road_graph.road_graph.nodes:
+            road_obj = road_graph.road_graph.nodes[road_idx]
+            for i in range(len(road_obj.geometry) - 1):
+                self.roads_segments.append([[road_obj.geometry[i][0], road_obj.geometry[i][1]],
+                                            [road_obj.geometry[i + 1][0], road_obj.geometry[i + 1][1]]])
+                self.roads_segments_id.append(road_idx)
+
+        # for road_id, road_obj in roads.items():
+        #     for i in range(len(road_obj.road_nodes) - 1):
+        #         self.roads_segments.append([[road_obj.road_nodes[i][0], road_obj.road_nodes[i][1]],
+        #                                     [road_obj.road_nodes[i + 1][0], road_obj.road_nodes[i + 1][1]]])
+        #         self.roads_segments_id.append(road_id)
 
         road_segments_data = self.change_data(np.concatenate(self.roads_segments))
         self.tree = spatial.cKDTree(road_segments_data[:, 2:5])
