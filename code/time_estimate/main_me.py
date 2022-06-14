@@ -2,6 +2,8 @@ import json
 import math
 import time
 import os
+
+import networkx as nx
 import numpy as np
 import pandas as pd
 import redis
@@ -14,6 +16,7 @@ import matplotlib.pyplot as plt
 from prettytable import PrettyTable
 from utils.db_manager import DBManager
 from utils.constants import ROAD_MAX_SPEED as RMS, REDIS_INFO
+from utils.road_network import BaseRoadNetwork
 
 
 class CandidateGraph:
@@ -74,6 +77,67 @@ class CandidateGraph:
             table.add_row([key, value.observation_probability])
         print("%s\n" % table)
         print("-" * 140)
+
+
+class RoadNetwork(BaseRoadNetwork):
+    def __init__(self):
+        self.temp_shortest_path = {}
+        super().__init__(usage="match")
+
+    def shortest_path(self, source, target):
+        """
+        dijkstra方法获取最短路径
+        :param source:
+        :param target:
+        :return:
+        """
+        path_key = f"{source}&{target}"
+        if path_key in self.temp_shortest_path.keys():
+            return self.temp_shortest_path[path_key]
+        return nx.dijkstra_path(self.road_graph, source, target)
+
+    def shortest_path_length(self, source, target):
+        """
+        dijkstra方法获取最短路径长度
+        :param source:
+        :param target:
+        :return:
+        """
+        path_key = f"{source}&{target}"
+        if path_key in self.temp_shortest_path.keys():
+            return len(self.temp_shortest_path[path_key])
+        return nx.dijkstra_path_length(self.road_graph, source, target)
+
+    def average_speed_spl(self, source, target):
+        """
+        最短路径上车辆行驶的平均速度
+        :return:
+        """
+        average_speed_list = []
+        shortest_path = self.shortest_path(source, target)
+        for road_idx in shortest_path:
+            average_speed = self.road_graph.nodes[road_idx]["average_speed"]
+            average_speed = average_speed if average_speed else self.road_graph.nodes[road_idx]["free_speed"]
+            average_speed_list.append(average_speed)
+
+        return np.mean(average_speed_list, 6)
+
+    def weighted_speed_limit_spl(self, source, target):
+        """
+        最短路径上车辆的加权速度限制
+        :return:
+        """
+        shortest_path = self.shortest_path(source, target)
+        return np.mean([self.road_graph.nodes[road_idx]["free_speed"] for road_idx in shortest_path], 6)
+
+    def road_speed_limit(self, road_idx):
+        """
+        通过路段id获取该路段限速
+        :param road_idx:
+        :return:
+        """
+        return self.road_graph.nodes[road_idx]["free_speed"]
+
 
 
 class RoadNetworkGraph:
