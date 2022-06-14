@@ -24,9 +24,9 @@ ROAD_MAX_SPEED = {
     "other": 50
 }
 
-ROAD_DATA_PATH = "data/road_data"
-INTERSEC_DATA_PATH = "data/vertex_data"
-GRAPH_DATA = "data/graph"
+ROAD_DATA_PATH = "data/road_network/me/road_data"
+INTERSEC_DATA_PATH = "data/road_network/me/vertex_data"
+GRAPH_DATA = "data/graph_data"
 ROAD_ATTR = ["link_id", "from_node_id", "to_node_id", "name", "length", "free_speed", "average_speed", "geometry"]
 INTERSEC_ATTR = ["node_id", "name", "x_coord", "y_coord"]
 
