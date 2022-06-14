@@ -30,7 +30,7 @@ def create_map(candi_file, start, end):
         3: "Mapbox Bright",
         4: "Mapbox Control Room"
     }
-    radius = 7
+    radius = 4
     porto_map = folium.Map([41.141412, -8.618643], tiles=tiles[1], zoom_start=16)
     dataframe = pd.read_csv(candi_file, encoding="utf-8", sep=",")
     candi_data = dataframe.iloc[start:end]
@@ -48,7 +48,8 @@ def create_map(candi_file, start, end):
                 current_color = colors[index_1][index_2]
 
             folium.Circle(radius=radius, location=(point[1], point[0]),
-                          popup=str(data[3]) + "(采样点)", color=current_color, fill=True, fill_opacity=0.0).add_to(porto_map)
+                          popup=str(data[3]) + "(采样点)", color=current_color, fill=True, fill_opacity=0.0).add_to(
+                porto_map)
 
         final_candidate = [eval(data[1])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
 
@@ -78,14 +79,22 @@ def create_map(candi_file, start, end):
                 point_a = seg[0]
                 point_b = seg[1]
                 folium.PolyLine(locations=[[point_a[1], point_a[0]],
-                                           [point_b[1], point_b[0]]], color=color, weight=weight, line_cap="square").add_to(porto_map)
+                                           [point_b[1], point_b[0]]], color=color, weight=weight,
+                                line_cap="square").add_to(porto_map)
                 weight += 1
+
+        for idx, points in enumerate(eval(data[1])):
+            color = color_list[idx] if first_flag else colors[index_1][idx]
+            for point in points:
+                folium.Circle(location=(point[1], point[0]), popup=str(data[3]) + "(其他候选点)", color=color, radius=2,
+                              fill=True, fill_opacity=0.3).add_to(porto_map)
+
         colors.append(color_list)
     return porto_map
 
 
 if __name__ == '__main__':
-    start = 3
+    start = 0
     end = start + 5
     first_flag = True
     colors = []

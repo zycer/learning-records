@@ -31,16 +31,14 @@ class CandidateGraph:
         for i in range(len(candidate_points) - 1):
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
-                    if f"{i}&{j}" not in self.candidate_graph.nodes.keys:
+                    if f"{i}&{j}" not in self.candidate_graph.nodes.keys():
                         observation_probability = self.observation_probability_func(point_j, trajectory[i])
                         self.candidate_graph.add_node(f"{i}&{j}", observation_probability=observation_probability)
-                    if f"{i+1}&{k}" not in self.candidate_graph.nodes.keys:
-                        observation_probability = self.observation_probability_func(point_k, trajectory[i+1])
-                        self.candidate_graph.add_node(f"{i+1}&{k}", observation_probability=observation_probability)
-
-                    if self.check_legitimate_path_func(candidate_roads[i][j], candidate_roads[i + 1][k]):
-                        self.candidate_graph.add_edge(self.candidate_graph.nodes[f"{i}&{j}"],
-                                                      self.candidate_graph.nodes[f"{i+1}&{k}"], vote=0)
+                    if f"{i + 1}&{k}" not in self.candidate_graph.nodes.keys():
+                        observation_probability = self.observation_probability_func(point_k, trajectory[i + 1])
+                        self.candidate_graph.add_node(f"{i + 1}&{k}", observation_probability=observation_probability)
+                    # if self.check_legitimate_path_func(candidate_roads[i][j], candidate_roads[i + 1][k]):
+                    self.candidate_graph.add_edge(f"{i}&{j}", f"{i + 1}&{k}", vote=0)
 
 
 class RoadNetwork(BaseRoadNetwork):
@@ -58,7 +56,10 @@ class RoadNetwork(BaseRoadNetwork):
         path_key = f"{source}&{target}"
         if path_key in self.temp_shortest_path.keys():
             return self.temp_shortest_path[path_key]
-        return nx.dijkstra_path(self.road_graph, source, target)
+        try:
+            return nx.dijkstra_path(self.road_graph, source, target)
+        except nx.exception.NetworkXNoPath:
+            return []
 
     def shortest_path_length(self, source, target):
         """
@@ -70,7 +71,10 @@ class RoadNetwork(BaseRoadNetwork):
         path_key = f"{source}&{target}"
         if path_key in self.temp_shortest_path.keys():
             return len(self.temp_shortest_path[path_key])
-        return nx.dijkstra_path_length(self.road_graph, source, target)
+        try:
+            return nx.dijkstra_path_length(self.road_graph, source, target)
+        except nx.exception.NetworkXNoPath:
+            return 0
 
     def average_speed_spl(self, source, target):
         """
@@ -84,7 +88,7 @@ class RoadNetwork(BaseRoadNetwork):
             average_speed = average_speed if average_speed else self.road_graph.nodes[road_idx]["free_speed"]
             average_speed_list.append(average_speed)
 
-        return np.mean(average_speed_list, 6)
+        return np.around(np.mean(average_speed_list), 6)
 
     def weighted_speed_limit_spl(self, source, target):
         """
@@ -92,7 +96,9 @@ class RoadNetwork(BaseRoadNetwork):
         :return:
         """
         shortest_path = self.shortest_path(source, target)
-        return np.mean([self.road_graph.nodes[road_idx]["free_speed"] for road_idx in shortest_path], 6)
+
+        return np.around(np.mean([self.road_graph.nodes[road_idx]["free_speed"] for road_idx in shortest_path]),
+                         6) if shortest_path else 0
 
     def road_speed_limit(self, road_idx):
         """
@@ -182,8 +188,7 @@ class AIVMM:
         :return: 两个连续候选点之间的最短路径和直路径的相似性(过度概率)
         """
         euclid_distance = self.euclid_distance(sample_point_pre, sample_point_cur)
-        shortest_path_length = self.get_shortest_path_length(self.road_graph.road_graph.nodes[pre_road_idx],
-                                                             self.road_graph.road_graph.nodes[cur_road_idx])
+        shortest_path_length = self.get_shortest_path_length(pre_road_idx, cur_road_idx)
         return euclid_distance / shortest_path_length if shortest_path_length else 0
 
     def spatial_analysis(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_idx, cur_road_idx):
@@ -219,8 +224,7 @@ class AIVMM:
 
     def path_weight(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_idx, cur_road_idx):
         sa = self.spatial_analysis(sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_idx, cur_road_idx)
-        ta = self.time_analysis(self.road_graph.road_graph.nodes[pre_road_idx],
-                                self.road_graph.road_graph.nodes[cur_road_idx])
+        ta = self.time_analysis(pre_road_idx, cur_road_idx)
         rlf = self.road_level_factor(pre_road_idx, cur_road_idx)
         return sa * ta * rlf
 
@@ -350,7 +354,8 @@ class AIVMM:
                 pre_ik[ii].append(-np.inf)
 
         for t in range(candi_count[0]):
-            f_ik[0][t] = omega_i[0, 0] * self.candidate_graph_obj.vertex[f"{0}&{t}"].observation_probability
+            f_ik[0][t] = omega_i[0, 0] * self.candidate_graph_obj.candidate_graph.nodes[f"{0}&{t}"][
+                "observation_probability"]
 
         for j in range(1, n):
             for s in range(candi_count[j]):
@@ -417,7 +422,8 @@ class AIVMM:
             for item in lop:
                 for k in range(n - 1):
                     try:
-                        self.candidate_graph_obj.edges[f"{k}&{item[k]}", f"{k + 1}&{item[k + 1]}"].vote += 1
+                        self.candidate_graph_obj.candidate_graph.edges[f"{k}&{item[k]}", f"{k + 1}&{item[k + 1]}"][
+                            "vote"] += 1
                     except KeyError:
                         pass
 
@@ -425,17 +431,17 @@ class AIVMM:
         for i in range(n - 1):
             vote[i] = None
 
-        for edge_idx in self.candidate_graph_obj.edges:
-            index = edge_idx[0]
-            edge = self.candidate_graph_obj.edges[edge_idx[0], edge_idx[1]]
+        for edge_idx in self.candidate_graph_obj.candidate_graph.edges:
+            index = int(edge_idx[0].split("&")[0])
+            edge = self.candidate_graph_obj.candidate_graph.edges[edge_idx[0], edge_idx[1]]
             if vote[index] is None:
-                vote[index] = edge
-            elif vote[index].vote < edge.vote:
-                vote[index] = edge
+                vote[index] = (edge, edge_idx)
+            elif vote[index][0]["vote"] < edge["vote"]:
+                vote[index] = (edge, edge_idx)
 
-        for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda temp: temp[0]):
-            final_path.append(edge.from_node_id if edge else None)
-            final_path.append(edge.to_node_id if edge else None) if key == n - 2 else None
+        for key, edge_info in sorted([(key, edge_info) for key, edge_info in vote.items()], key=lambda temp: temp[0]):
+            final_path.append(edge_info[1][0] if edge_info else None)
+            final_path.append(edge_info[1][1] if edge_info else None) if key == n - 2 else None
 
         # if is_show:
         # print("所有候选点的局部最优路径：")
@@ -474,7 +480,7 @@ class Main:
         print("加载路网数据...")
         self.road_graph = RoadNetwork()
         print("加载完成: ")
-        print("道路数：%s, 路口数：%s" % (len(self.road_graph.road_graph.edges), len(self.road_graph.road_graph.nodes)))
+        print("道路数：%s, 路口数：%s" % (len(self.road_graph.road_graph.nodes), len(self.road_graph.road_graph.edges)))
         self.db_handler = DBManager()
         self.aivmm = AIVMM(self.road_graph, self.mu, self.sigma, self.beta, neighbor_num)
 
@@ -541,7 +547,7 @@ class Main:
                     speed_dict[pre_road_id].append(instant_speed[i])
 
         for road_id, speed_list in speed_dict.items():
-            self.road_graph.road_graph.nodes[road_id].average_speed = np.around(np.mean(speed_list), 2)
+            self.road_graph.road_graph.nodes[road_id]["average_speed"] = np.around(np.mean(speed_list), 2)
 
         matched_info = {"road_info": speed_dict, "timestamp": timestamp}
         self.r.lpush("matched_result", json.dumps(matched_info))
@@ -662,7 +668,8 @@ class Main:
 
 def save_matched_data(candidate_data: dict):
     db_handler = DBManager()
-    header = None if "candidates_me.csv" in os.listdir("data/candidate_data") else \
+    file_name = "candidates_me_new.csv"
+    header = None if file_name in os.listdir("data/candidate_data") else \
         ["timestamp", "trajectory", "candidate_points", "final_path", "candidate_segments"]
 
     data_frame = pd.DataFrame({"timestamp": candidate_data["timestamp"],
@@ -670,7 +677,7 @@ def save_matched_data(candidate_data: dict):
                                "candidate_points": candidate_data["candidate_points"],
                                "final_path": candidate_data["final_path"],
                                "candidate_segments": candidate_data["candidate_segments"]})
-    data_frame.to_csv("data/candidate_data/candidates_me.csv", index=False, sep=',', mode="a+", header=header)
+    data_frame.to_csv(f"data/candidate_data/{file_name}", index=False, sep=',', mode="a+", header=header)
     db_handler.exec_sql(
         f"UPDATE finish_flag set num=num+{len(candidate_data['timestamp'])} WHERE file_name='train.csv'")
     print("save matched data")

@@ -30,11 +30,11 @@ class KNN:
 
         # qu diao 0
 
-        for road_idx in road_graph.road_graph.nodes:
+        for road_idx in road_graph.road_graph.nodes.keys():
             road_obj = road_graph.road_graph.nodes[road_idx]
-            for i in range(len(road_obj.geometry) - 1):
-                self.roads_segments.append([[road_obj.geometry[i][0], road_obj.geometry[i][1]],
-                                            [road_obj.geometry[i + 1][0], road_obj.geometry[i + 1][1]]])
+            for i in range(len(road_obj["geometry"]) - 1):
+                self.roads_segments.append([[road_obj["geometry"][i][0], road_obj["geometry"][i][1]],
+                                            [road_obj["geometry"][i + 1][0], road_obj["geometry"][i + 1][1]]])
                 self.roads_segments_id.append(road_idx)
 
         # for road_id, road_obj in roads.items():
