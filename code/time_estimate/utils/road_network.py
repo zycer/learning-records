@@ -6,7 +6,7 @@ from .constants import ROAD_DATA_PATH, INTERSEC_DATA_PATH, GRAPH_DATA, ROAD_ATTR
 from .tools import DBManager, get_road_data, get_intersection_data, get_graph_data
 
 
-class RoadNetwork:
+class BaseRoadNetwork:
     def __init__(self, usage):
         self.usage = usage
         self.road_graph = nx.DiGraph()
@@ -38,14 +38,14 @@ class RoadNetwork:
             link_id = road_one["link_id"]
             del road_one["link_id"]
             if self.usage == "match":
-                self.road_graph.add_node(link_id, road_attr=road_one)
+                self.road_graph.add_node(link_id, **road_one)
             else:
                 self.road_graph.add_node(link_id, road_attr=tuple([value for value in road_one.values()]))
 
         for graph_iter in graph_data:
             for edge in graph_iter:
                 if self.usage == "match":
-                    self.road_graph.add_edge(edge[0], edge[1], intersec_attr=self.intersection_dict[edge[2]])
+                    self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[edge[2]])
                 else:
                     self.road_graph.add_edge(edge[0], edge[1], intersec_attr=tuple([
                         value for value in self.intersection_dict[edge[2]].values()]))
