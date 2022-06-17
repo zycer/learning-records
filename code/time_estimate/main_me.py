@@ -24,10 +24,6 @@ class CandidateGraph:
         self.candidate_graph = nx.DiGraph()
 
     def generate_candidate_graph(self, trajectory, candidate_roads, candidate_points):
-        for i, candi_points in enumerate(candidate_points):
-            for j, candi_point in enumerate(candi_points):
-                self.candidate_graph.add_node(f"{i}&{j}", observation_probability=0)
-
         for i in range(len(candidate_points) - 1):
             for j, point_j in enumerate(candidate_points[i]):
                 for k, point_k in enumerate(candidate_points[i + 1]):
@@ -145,6 +141,8 @@ class AIVMM:
         GPS点的观测概率
         param: candidate_point: 候选点
         param: sample_point: 采样点
+        公式1: np.exp(-((euclid_distance - self.mu) ** 2) / (2 * (self.sigma ** 2)))
+        公式2: (1/math.sqrt(2*np.pi*self.sigma))*np.exp(-((euclid_distance - self.mu) ** 2) / (2 * (self.sigma ** 2)))
         """
         euclid_distance = self.euclid_distance(candidate_point, sample_point)
         return np.exp(-((euclid_distance - self.mu) ** 2) / (2 * (self.sigma ** 2)))
@@ -224,9 +222,9 @@ class AIVMM:
 
     def path_weight(self, sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_idx, cur_road_idx):
         sa = self.spatial_analysis(sample_point_pre, sample_point_cur, candidate_point_cur, pre_road_idx, cur_road_idx)
-        ta = self.time_analysis(pre_road_idx, cur_road_idx)
+        ta = self.time_analysis(pre_road_idx, cur_road_idx)     # ta误差大
         rlf = self.road_level_factor(pre_road_idx, cur_road_idx)
-        return sa * ta * rlf
+        return ta
 
     # 相互影响分析
     def static_score_matrix(self, trajectory, candidate_roads, candidate_points, is_show=False):
@@ -332,6 +330,21 @@ class AIVMM:
         """
         return True if self.get_shortest_path_length(source, target) else False
 
+    def new_find_lops(self, omega_i, phi_i, n, candi_count):
+        f_values = np.zeros((n, candi_count[0]))
+        for i in range(n):
+            if i == 0:
+                for t in range(candi_count[i]):
+                    temp_value = omega_i[0, 0] * self.candidate_graph_obj.candidate_graph.nodes[f"{0}&{t}"][
+                        "observation_probability"]
+                    f_values[0, t] = temp_value
+            else:
+                for s in range(candi_count[i]):
+                    f_values[i, s] = np.max([f_values[i-1][t]+phi_i[i-1][t,s] for t in range(candi_count[i])])
+
+        lop = [np.argmax(values) for values in f_values]
+        return lop
+
     def find_local_optimal_path(self, omega_i, phi_i, candi_count, n, i, k):
         """
         获取局部最优路径
@@ -373,6 +386,7 @@ class AIVMM:
 
         matched_path.append(c)
         matched_path.reverse()
+
         return matched_path, f_value_cik
 
     def find_local_optimal_path_sequence(self, trajectory, candidate_roads, candidate_points):
@@ -390,16 +404,17 @@ class AIVMM:
         # haoshi
         self.candidate_graph_obj = self.create_candidate_graph(trajectory, candidate_roads, candidate_points)
         distance_weight_matrix, phi_list = self.weighted_scoring_matrix(trajectory, candidate_roads, candidate_points)
+
         for i, points in enumerate(candidate_points):
             phi_i = phi_list[i]
             lop_i = []
             f_value_i = []
             for k in range(len(points)):
-                local_optimal_path, f_value = self.find_local_optimal_path(distance_weight_matrix[i], phi_i,
-                                                                           candi_count, len(trajectory), i, k)
+                # local_optimal_path, f_value = self.find_local_optimal_path(distance_weight_matrix[i], phi_i,
+                #                                                candi_count, len(trajectory), i, k)
+                local_optimal_path = self.new_find_lops(distance_weight_matrix[i], phi_i, len(trajectory), candi_count)
                 lop_i.append(local_optimal_path)
-                f_value_i.append(f_value)
-
+                # f_value_i.append(f_value)
             local_optimal_path_sequence.append(lop_i)
             f_value_sequence.append(f_value_i)
 
@@ -412,6 +427,41 @@ class AIVMM:
 
         # candidate_graph_obj.show_data()
         return candidate_graph_obj
+
+    def new_voting(self, trajectory, candidate_roads, candidate_points):
+        n = len(trajectory)
+        m = len(candidate_points[0])
+        print(n)
+        lop_seq, f_value_seq = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        for i, j in enumerate(lop_seq):
+            print(f"{i}:", j)
+
+        for lops in lop_seq:
+            one_vote = {}
+            for i in range(n):
+                one_vote[i] = {}
+
+            for lop in lops:
+                for i in lop:
+                    one_vote[i] += 1
+        # vote = np.zeros((n, n, m))
+        # for i in range(n):
+        #     for j in range(len(candidate_points[i])-1):
+        #         c_from = lop_seq[i][j]
+        #         c_to = lop_seq[i][j+1]
+        #         vote[j][c_from, c_to] = vote[j][c_from, c_to] + 1
+        #
+        # final_path = []
+        # max_index = np.argmax(vote[0])
+        # final_path.extend([max_index // m, max_index % m])
+        #
+        # for s in range(1, m):
+        #     final_path.append(np.argmax(
+        #         [vote[s][final_path[s], c_to] for c_to in range(m)]
+        #     ))
+        # print(final_path)
+        # exit()
+        # return final_path
 
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points, is_show=True):
         n = len(trajectory)
@@ -440,8 +490,10 @@ class AIVMM:
                 vote[index] = (edge, edge_idx)
 
         for key, edge_info in sorted([(key, edge_info) for key, edge_info in vote.items()], key=lambda temp: temp[0]):
-            final_path.append(edge_info[1][0] if edge_info else None)
-            final_path.append(edge_info[1][1] if edge_info else None) if key == n - 2 else None
+            if key == n - 2:
+                final_path.append(edge_info[1][1] if edge_info else None)
+            else:
+                final_path.append(edge_info[1][0] if edge_info else None)
 
         # if is_show:
         # print("所有候选点的局部最优路径：")
@@ -524,6 +576,7 @@ class Main:
             candidate_segments.append(segment_temp)
 
         final_path = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
+        # final_path = self.aivmm.new_voting(trajectory, candidate_roads, candidate_points)
 
         speed_dict = {}
         instant_speed = self.calculate_instant_speed(trajectory, rate)
