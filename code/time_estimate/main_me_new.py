@@ -84,7 +84,7 @@ class RoadNetwork(BaseRoadNetwork):
             average_speed = average_speed if average_speed else self.road_graph.nodes[road_idx]["free_speed"]
             average_speed_list.append(average_speed)
 
-        return np.around(np.mean(average_speed_list), 6)
+        return np.around(np.mean(average_speed_list), 6) if average_speed_list else 0
 
     def weighted_speed_limit_spl(self, source, target):
         """
@@ -667,8 +667,7 @@ class Main:
         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                           "candidate_segments": []}
         try:
-            while True:
-                tra_data = self.r.rpop("trajectory")
+            for index, tra_data in enumerate(self.r.lrange("trajectory", 0, -1)):
                 if tra_data:
                     tra_data = json.loads(tra_data)
                     len_tra_data = len(tra_data["polyline"])
@@ -706,7 +705,7 @@ class Main:
                         print("总匹配用时：", time.time() - tt)
 
                     if len(candidate_data["timestamp"]) > 5:
-                        save_matched_data(candidate_data)
+                        save_matched_data(candidate_data, index)
                         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                                           "candidate_segments": []}
 
@@ -720,9 +719,11 @@ class Main:
             # raise Exception
 
 
-def save_matched_data(candidate_data: dict):
+def save_matched_data(candidate_data: dict, index):
     db_handler = DBManager()
     file_name = "candidates_me_new.csv"
+    if index == 5:
+        os.remove(f"data/candidate_data/{file_name}")
     header = None if file_name in os.listdir("data/candidate_data") else \
         ["timestamp", "trajectory", "candidate_points", "final_path", "candidate_segments"]
 

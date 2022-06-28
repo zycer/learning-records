@@ -895,8 +895,7 @@ class Main:
         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                           "candidate_segments": []}
         try:
-            while True:
-                tra_data = self.r.rpop("trajectory")
+            for index, tra_data in enumerate(self.r.lrange("trajectory", 0, -1)):
                 if tra_data:
                     tra_data = json.loads(tra_data)
                     len_tra_data = len(tra_data["polyline"])
@@ -934,7 +933,7 @@ class Main:
                         print("总匹配用时：", time.time() - tt)
 
                     if len(candidate_data["timestamp"]) > 5:
-                        save_matched_data(candidate_data)
+                        save_matched_data(candidate_data, index)
                         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                                           "candidate_segments": []}
 
@@ -948,8 +947,11 @@ class Main:
             # raise Exception
 
 
-def save_matched_data(candidate_data: dict):
+def save_matched_data(candidate_data: dict, index):
     db_handler = DBManager()
+    file_name = "candidates_other.csv"
+    if index == 5:
+        os.remove(f"data/candidate_data/{file_name}")
     header = None if "candidates_other.csv" in os.listdir("data/candidate_data") else \
         ["timestamp", "trajectory", "candidate_points", "final_path", "candidate_segments"]
 
@@ -958,7 +960,7 @@ def save_matched_data(candidate_data: dict):
                                "candidate_points": candidate_data["candidate_points"],
                                "final_path": candidate_data["final_path"],
                                "candidate_segments": candidate_data["candidate_segments"]})
-    data_frame.to_csv("data/candidate_data/candidates_other.csv", index=False, sep=',', mode="a+", header=header)
+    data_frame.to_csv(f"data/candidate_data/{file_name}", index=False, sep=',', mode="a+", header=header)
     db_handler.exec_sql(
         f"UPDATE finish_flag set num=num+{len(candidate_data['timestamp'])} WHERE file_name='train.csv'")
     print("save matched data")
