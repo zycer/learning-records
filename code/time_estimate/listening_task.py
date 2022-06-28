@@ -37,12 +37,12 @@ def listening_task():
         tra_iter.get_chunk(finish_dict[name])
         try:
             while True:
-                if r.llen("trajectory") > 1000:
+                if r.llen("trajectory") > 100:
                     time.sleep(10)
                 else:
                     tra_one = tra_iter.get_chunk(1)
                     polyline = json.loads(tra_one["POLYLINE"].values[0])
                     timestamp = tra_one["TIMESTAMP"].values[0].item()
-                    r.lpush("trajectory", json.dumps({"polyline": polyline, "timestamp": timestamp, "file_name": name}))
+                    r.rpush("trajectory", json.dumps({"polyline": polyline, "timestamp": timestamp, "file_name": name}))
         except StopIteration:
             break
