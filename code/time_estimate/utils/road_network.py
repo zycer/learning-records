@@ -45,7 +45,7 @@ class BaseRoadNetwork:
         for graph_iter in graph_data:
             for edge in graph_iter:
                 if self.usage == "match":
-                    self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[edge[2]])
+                    self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[int(edge[2])])
                 else:
                     self.road_graph.add_edge(edge[0], edge[1], intersec_attr=tuple([
                         value for value in self.intersection_dict[edge[2]].values()]))

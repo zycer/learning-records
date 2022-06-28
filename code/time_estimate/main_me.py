@@ -721,7 +721,7 @@ class Main:
 
 def save_matched_data(candidate_data: dict):
     db_handler = DBManager()
-    file_name = "candidates_me_new.csv"
+    file_name = "candidates_me.csv"
     header = None if file_name in os.listdir("data/candidate_data") else \
         ["timestamp", "trajectory", "candidate_points", "final_path", "candidate_segments"]
 
