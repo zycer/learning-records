@@ -48,7 +48,7 @@ def create_map(candi_file, start, end):
                 current_color = colors[index_1][index_2]
 
             folium.Circle(radius=radius, location=(point[1], point[0]),
-                          popup=str(data[3]) + "(采样点)", color=current_color, fill=True, fill_opacity=0.0).add_to(
+                          popup=f"{str(data[3])}-{index_2}(采样点)", color=current_color, fill=True, fill_opacity=0.0).add_to(
                 porto_map)
 
         final_candidate = [eval(data[1])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
@@ -59,7 +59,7 @@ def create_map(candi_file, start, end):
             else:
                 color = colors[index_1][idx]
             folium.Circle(radius=radius, location=(candi_point[1], candi_point[0]),
-                          popup=str(data[3]) + "(匹配点)", color=color, fill=True, fill_opacity=0.7).add_to(porto_map)
+                          popup=f"{str(data[3])}-{idx}(匹配点)", color=color, fill=True, fill_opacity=0.7).add_to(porto_map)
 
         # final_candi_segments = [eval(data[4])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
         # for idx, segment in enumerate(final_candi_segments):
@@ -86,7 +86,7 @@ def create_map(candi_file, start, end):
         for idx, points in enumerate(eval(data[1])):
             color = color_list[idx] if first_flag else colors[index_1][idx]
             for point in points:
-                folium.Circle(location=(point[1], point[0]), popup=str(data[3]) + "(其他候选点)", color=color, radius=2,
+                folium.Circle(location=(point[1], point[0]), popup=f"{str(data[3])}-{idx}(其他候选点)", color=color, radius=2,
                               fill=True, fill_opacity=0.3).add_to(porto_map)
 
         colors.append(color_list)
