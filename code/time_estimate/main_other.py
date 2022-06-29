@@ -932,7 +932,7 @@ class Main:
 
                         print("总匹配用时：", time.time() - tt)
 
-                    if len(candidate_data["timestamp"]) > 5:
+                    if len(candidate_data["timestamp"]) > 0:
                         save_matched_data(candidate_data, index)
                         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                                           "candidate_segments": []}
@@ -950,7 +950,7 @@ class Main:
 def save_matched_data(candidate_data: dict, index):
     db_handler = DBManager()
     file_name = "candidates_other.csv"
-    if index == 5:
+    if index == 0 and os.path.exists(f"data/candidate_data/{file_name}"):
         os.remove(f"data/candidate_data/{file_name}")
     header = None if "candidates_other.csv" in os.listdir("data/candidate_data") else \
         ["timestamp", "trajectory", "candidate_points", "final_path", "candidate_segments"]
