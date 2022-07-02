@@ -4,6 +4,8 @@ import webbrowser
 import pandas as pd
 import random
 
+import contrast_experiment
+
 
 def save_map(map_obj, map_name):
     map_name = map_name.replace(".csv", ".html")
@@ -94,8 +96,8 @@ def create_map(candi_file, start, end):
 
 
 if __name__ == '__main__':
-    start = 6
-    end = start + 1
+    start = 0
+    end = -1
     first_flag = True
     colors = []
     for num, file_name in enumerate(os.listdir("data/candidate_data")):
@@ -106,3 +108,7 @@ if __name__ == '__main__':
 
         porto_map = create_map(file_path, start, end)
         save_map(porto_map, file_name)
+
+    contrast_experiment.read_data()
+    contrast_experiment.mean_distance_error()
+    contrast_experiment.accuracy()
