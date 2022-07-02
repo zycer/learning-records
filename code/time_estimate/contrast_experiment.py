@@ -49,8 +49,9 @@ def mean_distance_error():
 
 def accuracy():
     points_num = sum(map(lambda x: len(eval(x[0])), data_list[0]))
-    aivmm_num = 206
-    me_num = 227
+    print(points_num)
+    aivmm_num = 764
+    me_num = 839
     x_labels = ["", "me", "other", ""]
     y_data = [me_num / points_num * 100, aivmm_num / points_num * 100]
     plt.bar([1, 2], y_data, width=0.5)
@@ -67,5 +68,5 @@ def accuracy():
 
 if __name__ == '__main__':
     read_data()
-    # mean_distance_error()
+    mean_distance_error()
     accuracy()
