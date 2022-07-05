@@ -35,7 +35,10 @@ def create_map(candi_file, start, end):
     radius = 4
     porto_map = folium.Map([41.141412, -8.618643], tiles=tiles[1], zoom_start=16)
     dataframe = pd.read_csv(candi_file, encoding="utf-8", sep=",")
-    candi_data = dataframe.iloc[start:end]
+    if end == -1:
+        candi_data = dataframe.iloc[start:]
+    else:
+        candi_data = dataframe.iloc[start: end]
     data_iter = zip(list(candi_data["trajectory"].values), list(candi_data["candidate_points"].values),
                     list(candi_data["final_path"].values), list(candi_data["timestamp"].values),
                     list(candi_data["candidate_segments"]))
@@ -90,14 +93,15 @@ def create_map(candi_file, start, end):
         #     for point in points:
         #         folium.Circle(location=(point[1], point[0]), popup=f"{str(data[3])}-{idx}(其他候选点)", color=color, radius=2,
         #                       fill=True, fill_opacity=0.3).add_to(porto_map)
-
+        print(len(eval(data[0])))
+        print(data[3])
         colors.append(color_list)
     return porto_map
 
 
 if __name__ == '__main__':
-    start = 0
-    end = -1
+    start = 24
+    end = start + 1
     first_flag = True
     colors = []
     for num, file_name in enumerate(os.listdir("data/candidate_data")):
@@ -109,6 +113,6 @@ if __name__ == '__main__':
         porto_map = create_map(file_path, start, end)
         save_map(porto_map, file_name)
 
-    contrast_experiment.read_data()
-    contrast_experiment.mean_distance_error()
-    contrast_experiment.accuracy()
+    # contrast_experiment.read_data()
+    # contrast_experiment.mean_distance_error()
+    # contrast_experiment.accuracy()

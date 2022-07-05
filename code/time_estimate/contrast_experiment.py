@@ -24,6 +24,7 @@ def mean_distance_error():
     total_dist = []
     for data_iter in data_list:
         distances = []
+        data_iter = data_iter[1:2]
         for data in data_iter:
             final_candidate = [eval(data[1])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
             dist = list(
@@ -31,11 +32,12 @@ def mean_distance_error():
             distances.append(dist)
         total_dist.append(distances)
 
-    labels = ["", "ME", "AIVMM", ""]
+    labels = ["", "MIVMM", "AIVMM", ""]
     sum_dist = []
     for distances in total_dist:
         sum_dist.append(np.mean(list(map(lambda x: np.mean(x), distances))))
 
+    plt.figure(figsize=(8, 6), dpi=240)
     plt.bar([1, 2], sum_dist, width=0.4)
     plt.xticks(range(4), labels)
     plt.ylabel("distance error(m)")
@@ -69,4 +71,4 @@ def accuracy():
 if __name__ == '__main__':
     read_data()
     mean_distance_error()
-    accuracy()
+    # accuracy()
