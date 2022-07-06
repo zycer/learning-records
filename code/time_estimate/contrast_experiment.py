@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from geopy.distance import geodesic
+import matplotlib as mpl
+
 
 file_sequence = []
 data_list = []
@@ -50,25 +52,45 @@ def mean_distance_error():
 
 
 def accuracy():
-    points_num = sum(map(lambda x: len(eval(x[0])), data_list[0]))
-    print(points_num)
-    aivmm_num = 764
-    me_num = 839
-    x_labels = ["", "me", "other", ""]
-    y_data = [me_num / points_num * 100, aivmm_num / points_num * 100]
-    plt.bar([1, 2], y_data, width=0.5)
+    mpl.rcParams["font.sans-serif"] = ["SimHei"]
+    mpl.rcParams["axes.unicode_minus"] = False
+
+    data = np.array([[560 / 608 * 100, 500 / 608 * 100, 0],
+                     [791 / 840 * 100, 730 / 840 * 100, 0],
+                     [291 / 304 * 100, 280 / 304 * 100, 0]])
+
+    branch = [560/608*100, 500/608*100, 0]
+    expressway = [791/840*100, 730/840*100, 0]
+    highway = [291/304*100, 280/304*100, 0]
+    x = np.array([0.2, 0.7, 1])
+    print(x)
+
+    bar_width = 0.14
+    tick_label = ["MIVMM", "AIVMM"]
+    plt.figure(dpi=240)
     plt.title("Correct Matching Percentage")
     plt.ylabel("correct(%)")
-    plt.xticks(range(len(x_labels)), x_labels)
-    plt.yticks(np.arange(0, 101, 10))
+    plt.bar(x, data[0], bar_width, align="center", color="c", label="Branch", alpha=0.5)
+    plt.bar(x + bar_width, data[1], bar_width, color="b", align="center", label="Expressway", alpha=0.5)
+    plt.bar(x + 2 * bar_width, data[2], bar_width, color="r", align="center", label="Highway", alpha=0.5)
 
-    for i in range(len(y_data)):
-        plt.text(i + 0.85, y_data[i] + 1, f"{round(y_data[i], 2)}%")
+    for num_j, j in enumerate([x[0]-0.1, x[0]+0.04, x[0]+0.17]):
+        plt.text(j+0.06, data[num_j, 0]+0.8, f"{round(data[num_j, 0], 2)}")
+
+    for num_j, j in enumerate([x[1]-0.1, x[1]+0.05, x[1]+0.18]):
+        plt.text(j+0.06, data[num_j, 1]+0.8, f"{round(data[num_j, 1], 2)}")
+
+    plt.xticks(x[:-1] + bar_width / 2 + 0.07, tick_label)
+    y_label = list(np.arange(0, 111, 10))
+    y_label[-1] = ""
+    plt.yticks(np.arange(0, 111, 10), y_label)
+
+    plt.legend(loc='upper right')
 
     plt.show()
 
 
 if __name__ == '__main__':
     read_data()
-    mean_distance_error()
-    # accuracy()
+    # mean_distance_error()
+    accuracy()
