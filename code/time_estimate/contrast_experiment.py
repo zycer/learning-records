@@ -23,10 +23,13 @@ def read_data():
 
 
 def mean_distance_error():
+    def get_mean(dist_list):
+        return np.mean([_dist for _dist in dist_list if _dist <= 25])
+
     total_dist = []
     for data_iter in data_list:
         distances = []
-        data_iter = data_iter[1:2]
+        data_iter = data_iter[3:5]
         for data in data_iter:
             final_candidate = [eval(data[1])[int(idx.split("&")[0])][int(idx.split("&")[1])] for idx in eval(data[2])]
             dist = list(
@@ -37,7 +40,7 @@ def mean_distance_error():
     labels = ["", "MIVMM", "AIVMM", ""]
     sum_dist = []
     for distances in total_dist:
-        sum_dist.append(np.mean(list(map(lambda x: np.mean(x), distances))))
+        sum_dist.append(np.mean(list(map(get_mean, distances))))
 
     plt.figure(figsize=(8, 6), dpi=240)
     plt.bar([1, 2], sum_dist, width=0.4)
@@ -51,19 +54,47 @@ def mean_distance_error():
     plt.show()
 
 
+def mean_distance_error_new():
+    data = np.array([[10.4092, 15.4946, 0],
+                     [9.9823, 15.8946, 0],
+                     [8.8378, 13.3767, 0]])
+
+    x_list = np.array([0.2, 0.7, 1])
+
+    bar_width = 0.14
+    tick_label = ["MIVMM", "AIVMM"]
+    plt.figure(dpi=240)
+    plt.title("mean distance error")
+    plt.ylabel("distance error(m)")
+    plt.bar(x_list, data[0], bar_width, align="center", label="Branch", alpha=0.5)
+    plt.bar(x_list + bar_width, data[1], bar_width, align="center", label="Expressway", alpha=0.5)
+    plt.bar(x_list + 2 * bar_width, data[2], bar_width, align="center", label="Highway", alpha=0.5)
+
+    for num_j, j in enumerate([x_list[0] - 0.1, x_list[0] + 0.04, x_list[0] + 0.18]):
+        plt.text(j + 0.05, data[num_j, 0] + 0.3, f"{round(data[num_j, 0], 2)}")
+
+    for num_j, j in enumerate([x_list[1] - 0.1, x_list[1] + 0.05, x_list[1] + 0.18]):
+        plt.text(j + 0.04, data[num_j, 1] + 0.3, f"{round(data[num_j, 1], 2)}")
+
+    plt.xticks(x_list[:-1] + bar_width / 2 + 0.07, tick_label)
+    y_label = list(np.arange(0, 21, 5))
+    y_label[-1] = ""
+    plt.yticks(np.arange(0, 21, 5), y_label)
+
+    plt.legend(loc='upper right')
+
+    plt.show()
+
+
 def accuracy():
     mpl.rcParams["font.sans-serif"] = ["SimHei"]
     mpl.rcParams["axes.unicode_minus"] = False
 
     data = np.array([[560 / 608 * 100, 500 / 608 * 100, 0],
                      [791 / 840 * 100, 730 / 840 * 100, 0],
-                     [291 / 304 * 100, 280 / 304 * 100, 0]])
+                     [291 / 304 * 100, 281 / 304 * 100, 0]])
 
-    branch = [560/608*100, 500/608*100, 0]
-    expressway = [791/840*100, 730/840*100, 0]
-    highway = [291/304*100, 280/304*100, 0]
     x = np.array([0.2, 0.7, 1])
-    print(x)
 
     bar_width = 0.14
     tick_label = ["MIVMM", "AIVMM"]
@@ -92,5 +123,6 @@ def accuracy():
 
 if __name__ == '__main__':
     read_data()
-    # mean_distance_error()
-    accuracy()
+    mean_distance_error_new()
+    print(file_sequence)
+    # accuracy()
