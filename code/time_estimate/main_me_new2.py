@@ -88,13 +88,16 @@ class RoadNetwork(BaseRoadNetwork):
         :param target:
         :return:
         """
+        _path = []
         path_key = f"{source}&{target}"
         if path_key in self.temp_shortest_path.keys():
             return self.temp_shortest_path[path_key]
         try:
-            return nx.dijkstra_path(self.road_graph, source, target)
+            _path = nx.dijkstra_path(self.road_graph, source, target)
         except nx.exception.NetworkXNoPath:
-            return []
+            _path = []
+        self.temp_shortest_path[path_key] = _path
+        return _path
 
     def shortest_path_length(self, source, target):
         """
@@ -663,6 +666,7 @@ class Main:
         return candidate_points, final_path, candidate_segments
 
     def main(self):
+        ttt = time.time()
         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                           "candidate_segments": []}
         try:
@@ -716,6 +720,7 @@ class Main:
             raise
             # self.r.rpush("trajectory", json.dumps(tra_data))
             # raise Exception
+        print("总时间：", time.time() - ttt)
 
 
 def save_matched_data(candidate_data: dict, index):
