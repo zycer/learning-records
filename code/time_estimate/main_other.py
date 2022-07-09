@@ -665,6 +665,7 @@ class AIVMM:
         :param candidate_points:    候选点
         :return: 列表，局部最优路径序列
         """
+        t_time = 0
         local_optimal_path_sequence = []
         f_value_sequence = []
 
@@ -677,15 +678,18 @@ class AIVMM:
             lop_i = []
             f_value_i = []
             for k in range(len(points)):
+                t = time.time()
                 local_optimal_path, f_value = self.find_local_optimal_path(distance_weight_matrix[i], phi_i,
                                                                            candi_count, len(trajectory), i, k)
+                t_time += time.time() - t
+                # local_optimal_path = self.new_find_lops(distance_weight_matrix[i], phi_i, len(trajectory), candi_count)
                 lop_i.append(local_optimal_path)
-                f_value_i.append(f_value)
-
+                # f_value_i.append(f_value)
             local_optimal_path_sequence.append(lop_i)
             f_value_sequence.append(f_value_i)
 
-        return local_optimal_path_sequence, f_value_sequence
+        print("total_time:", t_time)
+        return local_optimal_path_sequence, f_value_sequence, t_time
 
     def create_candidate_graph(self, trajectory, candidate_roads, candidate_points):
         candidate_graph_obj = CandidateGraph(self.check_legitimate_path, self.gps_observation_probability,
@@ -699,30 +703,30 @@ class AIVMM:
     def candidate_edge_voting(self, trajectory, candidate_roads, candidate_points, is_show=True):
         n = len(trajectory)
         final_path = []
-        lop_seq, f_value_seq = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
+        lop_seq, f_value_seq, t_time = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points)
 
-        for lop in lop_seq:
-            for item in lop:
-                for k in range(n - 1):
-                    try:
-                        self.candidate_graph_obj.edge[f"{k}&{item[k]}|{k + 1}&{item[k + 1]}"].vote += 1
-                    except KeyError:
-                        pass
-
-        vote = {}
-        for i in range(n - 1):
-            vote[i] = None
-
-        for edge in self.candidate_graph_obj.edge.values():
-            index = int(edge.idx.split('|')[0].split('&')[0])
-            if vote[index] is None:
-                vote[index] = edge
-            elif vote[index].vote < edge.vote:
-                vote[index] = edge
-
-        for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda temp: temp[0]):
-            final_path.append(edge.fro if edge else None)
-            final_path.append(edge.to if edge else None) if key == n - 2 else None
+        # for lop in lop_seq:
+        #     for item in lop:
+        #         for k in range(n - 1):
+        #             try:
+        #                 self.candidate_graph_obj.edge[f"{k}&{item[k]}|{k + 1}&{item[k + 1]}"].vote += 1
+        #             except KeyError:
+        #                 pass
+        #
+        # vote = {}
+        # for i in range(n - 1):
+        #     vote[i] = None
+        #
+        # for edge in self.candidate_graph_obj.edge.values():
+        #     index = int(edge.idx.split('|')[0].split('&')[0])
+        #     if vote[index] is None:
+        #         vote[index] = edge
+        #     elif vote[index].vote < edge.vote:
+        #         vote[index] = edge
+        #
+        # for key, edge in sorted([(key, edge) for key, edge in vote.items()], key=lambda temp: temp[0]):
+        #     final_path.append(edge.fro if edge else None)
+        #     final_path.append(edge.to if edge else None) if key == n - 2 else None
 
         # if is_show:
         # print("所有候选点的局部最优路径：")
@@ -749,7 +753,7 @@ class AIVMM:
         # print(temp)
         # print("-" * 140)
 
-        return final_path
+        return final_path, t_time
 
 
 class Main:
@@ -805,34 +809,34 @@ class Main:
             candidate_points.append(point_temp)
             candidate_segments.append(segment_temp)
 
-        final_path = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
+        final_path, t_time = self.aivmm.candidate_edge_voting(trajectory, candidate_roads, candidate_points)
 
-        speed_dict = {}
-        instant_speed = self.calculate_instant_speed(trajectory, rate)
-
-        for i in range(len(final_path) - 1):
-            if final_path[i] is not None and final_path[i + 1]:
-                sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
-                sample_index_cur, candi_index_cur = map(int, final_path[i + 1].split('&'))
-                pre_road_id = candidate_roads[sample_index_pre][candi_index_pre].item()
-                cur_road_id = candidate_roads[sample_index_cur][candi_index_cur].item()
-
-                if pre_road_id not in speed_dict.keys():
-                    speed_dict[pre_road_id] = []
-                if cur_road_id not in speed_dict.keys():
-                    speed_dict[cur_road_id] = []
-
-                if pre_road_id == cur_road_id:
-                    speed_dict[pre_road_id].append(instant_speed[i])
-                else:
-                    speed_dict[cur_road_id].append(instant_speed[i])
-                    speed_dict[pre_road_id].append(instant_speed[i])
-
-        for road_id, speed_list in speed_dict.items():
-            self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
-
-        matched_info = {"road_info": speed_dict, "timestamp": timestamp}
-        self.r.lpush("matched_result", json.dumps(matched_info))
+        # speed_dict = {}
+        # instant_speed = self.calculate_instant_speed(trajectory, rate)
+        #
+        # for i in range(len(final_path) - 1):
+        #     if final_path[i] is not None and final_path[i + 1]:
+        #         sample_index_pre, candi_index_pre = map(int, final_path[i].split('&'))
+        #         sample_index_cur, candi_index_cur = map(int, final_path[i + 1].split('&'))
+        #         pre_road_id = candidate_roads[sample_index_pre][candi_index_pre].item()
+        #         cur_road_id = candidate_roads[sample_index_cur][candi_index_cur].item()
+        #
+        #         if pre_road_id not in speed_dict.keys():
+        #             speed_dict[pre_road_id] = []
+        #         if cur_road_id not in speed_dict.keys():
+        #             speed_dict[cur_road_id] = []
+        #
+        #         if pre_road_id == cur_road_id:
+        #             speed_dict[pre_road_id].append(instant_speed[i])
+        #         else:
+        #             speed_dict[cur_road_id].append(instant_speed[i])
+        #             speed_dict[pre_road_id].append(instant_speed[i])
+        #
+        # for road_id, speed_list in speed_dict.items():
+        #     self.road_graph.road_segment[road_id].average_speed = np.around(np.mean(speed_list), 2)
+        #
+        # matched_info = {"road_info": speed_dict, "timestamp": timestamp}
+        # self.r.lpush("matched_result", json.dumps(matched_info))
 
         # print("匹配道路的速度值：")
         # table = PrettyTable(["路段id", "时刻", "速度列表", "平均速度"])
@@ -889,25 +893,29 @@ class Main:
             plt.plot(x_list, y_list, color="red", label="matched path", alpha=0.7)
             plt.legend(loc=0, ncol=2)
             plt.show()
-        return candidate_points, final_path, candidate_segments
+        return candidate_points, final_path, candidate_segments, t_time
 
     def main(self):
         candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
                           "candidate_segments": []}
+        trajectory_data = self.r.lrange("trajectory", 0, -1)
+        start_time = time.time()
+        lop_t_time = 0
         try:
-            for index, tra_data in enumerate(self.r.lrange("trajectory", 0, -1)):
+            for index, tra_data in enumerate(trajectory_data):
                 if tra_data:
                     tra_data = json.loads(tra_data)
                     len_tra_data = len(tra_data["polyline"])
                     if len_tra_data < 3:
                         print("跳过数据: ", tra_data["timestamp"])
-                        self.db_handler.exec_sql("UPDATE finish_flag set num=num+1 WHERE file_name='train.csv'")
+                        # self.db_handler.exec_sql("UPDATE finish_flag set num=num+1 WHERE file_name='train.csv'")
                         continue
                     elif len_tra_data <= 100:
                         t = time.time()
                         result = self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
-                        candidate_points, final_path, candidate_segments = result
-                        print("总匹配用时：", time.time() - t)
+                        candidate_points, final_path, candidate_segments, t_time = result
+                        lop_t_time += t_time
+                        print("匹配用时：", time.time() - t)
                         update_matched_data(candidate_data, tra_data["polyline"], tra_data["timestamp"],
                                             candidate_points, final_path, candidate_segments)
 
@@ -917,7 +925,8 @@ class Main:
                             t = time.time()
                             temp_tra = tra_data["polyline"][:100]
                             result = self.match_candidate(temp_tra, tra_data["timestamp"])
-                            candidate_points, final_path, candidate_segments = result
+                            candidate_points, final_path, candidate_segments, t_time = result
+                            lop_t_time += t_time
                             tra_data["polyline"] = tra_data["polyline"][100:]
                             len_tra_data = len(tra_data["polyline"])
                             print("分解匹配用时：", time.time() - t)
@@ -926,16 +935,17 @@ class Main:
 
                         if len(tra_data["polyline"]) > 2:
                             result = self.match_candidate(tra_data["polyline"], tra_data["timestamp"])
-                            candidate_points, final_path, candidate_segments = result
+                            candidate_points, final_path, candidate_segments, t_time = result
+                            lop_t_time += t_time
                             update_matched_data(candidate_data, tra_data["polyline"], tra_data["timestamp"],
                                                 candidate_points, final_path, candidate_segments)
 
-                        print("总匹配用时：", time.time() - tt)
+                        print("匹配用时：", time.time() - tt)
 
-                    if len(candidate_data["timestamp"]) > 0:
-                        save_matched_data(candidate_data, index)
-                        candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
-                                          "candidate_segments": []}
+                    # if len(candidate_data["timestamp"]) > 0:
+                    #     save_matched_data(candidate_data, index)
+                    #     candidate_data = {"timestamp": [], "trajectory": [], "candidate_points": [], "final_path": [],
+                    #                       "candidate_segments": []}
 
                     self.road_graph.temp_shortest_path.clear()
                 else:
@@ -945,6 +955,8 @@ class Main:
             raise
             # self.r.rpush("trajectory", json.dumps(tra_data))
             # raise Exception
+        # print("总匹配时间：", time.time() - start_time)
+        print("t_time:", lop_t_time)
 
 
 def save_matched_data(candidate_data: dict, index):
@@ -983,4 +995,46 @@ def plot_road(road_obj, is_label=False):
 
 
 if __name__ == "__main__":
-    Main().main()
+    Main(neighbor_num=3).main()
+    # r = redis.Redis(**REDIS_INFO, decode_responses=True)
+    # trajectory_data = r.lrange("trajectory", 0, -1)
+    # road_graph = RoadNetworkGraph()
+    # road_graph.load_road_data()
+    # knn = KNN(road_graph.road_segment, 6)
+
+    # total_time = 0
+    # for data in trajectory_data:
+    #     data = json.loads(data)
+    #     res, end_time = knn.matched_knn(data["polyline"])
+    #     total_time += end_time
+    # print(total_time)
+
+    # 最短路径算法比较
+    # total_time = 0
+    # for data in trajectory_data:
+    #     data = json.loads(data)
+    #     matched_result, match_time = knn.matched_knn(data["polyline"])
+    #
+    #     candidate_roads = []
+    #     candidate_points = []
+    #
+    #     for result_set in matched_result:
+    #         road_temp = []
+    #         point_temp = []
+    #
+    #         for road_info in result_set:
+    #             road_temp.append(road_info[0])
+    #             point_temp.append(road_info[2])
+    #
+    #         candidate_roads.append(road_temp)
+    #         candidate_points.append(point_temp)
+    #
+    #     for i in range(len(candidate_points) - 1):
+    #         for j, point_j in enumerate(candidate_points[i]):
+    #             for k, point_k in enumerate(candidate_points[i + 1]):
+    #                 t = time.time()
+    #                 road_graph.shortest_path(road_graph.road_segment[candidate_roads[i][j]],
+    #                                          road_graph.road_segment[candidate_roads[i + 1][k]])
+    #                 total_time += time.time() - t
+    #
+    # print(total_time)

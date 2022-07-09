@@ -210,8 +210,8 @@ class KNN:
 
             matched.append(one_tra_matched)
 
-        if is_show:
-            print(f"候选点匹配用时<{round(time.time() - start_time, 6)}>秒")
+        # if is_show:
+        #     print(f"候选点匹配用时<{round(time.time() - start_time, 6)}>秒")
             # for i, result in enumerate(matched):
             #     print(f"采样点{i}: ")
             #     table = PrettyTable(["路段ID", "距离", "经度", "纬度"])
@@ -220,8 +220,8 @@ class KNN:
             #     print(table)
             #     print()
 
-        if is_plot:
-            self.plot_result(trajectory)
+        # if is_plot:
+        #     self.plot_result(trajectory)
         return matched, time.time() - start_time
 
     def plot_result(self, trajectory):

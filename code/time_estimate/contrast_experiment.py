@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 from geopy.distance import geodesic
 import matplotlib as mpl
 
-
 file_sequence = []
 data_list = []
 
 
 def read_data():
-    for num, file_name in enumerate(os.listdir("data/candidate_data")):
+    file_list = sorted(os.listdir("data/candidate_data"))
+    for num, file_name in enumerate(file_list):
         file_sequence.append(file_name)
         file_path = os.path.join("data/candidate_data", file_name)
         dataframe = pd.read_csv(file_path, encoding="utf-8", sep=",")
@@ -87,14 +87,14 @@ def mean_distance_error_new():
 
 
 def accuracy():
-    mpl.rcParams["font.sans-serif"] = ["SimHei"]
+    # mpl.rcParams["font.sans-serif"] = ["SimHei"]
     mpl.rcParams["axes.unicode_minus"] = False
 
     data = np.array([[560 / 608 * 100, 500 / 608 * 100, 0],
                      [791 / 840 * 100, 730 / 840 * 100, 0],
                      [291 / 304 * 100, 281 / 304 * 100, 0]])
 
-    x = np.array([0.2, 0.7, 1])
+    x = np.array([0.2, 0.7, 1.06])
 
     bar_width = 0.14
     tick_label = ["MIVMM", "AIVMM"]
@@ -105,11 +105,11 @@ def accuracy():
     plt.bar(x + bar_width, data[1], bar_width, color="b", align="center", label="Expressway", alpha=0.5)
     plt.bar(x + 2 * bar_width, data[2], bar_width, color="r", align="center", label="Highway", alpha=0.5)
 
-    for num_j, j in enumerate([x[0]-0.1, x[0]+0.04, x[0]+0.17]):
-        plt.text(j+0.06, data[num_j, 0]+0.8, f"{round(data[num_j, 0], 2)}")
+    for num_j, j in enumerate([x[0] - 0.1, x[0] + 0.03, x[0] + 0.175]):
+        plt.text(j + 0.06, data[num_j, 0] + 0.8, f"{round(data[num_j, 0], 1)}")
 
-    for num_j, j in enumerate([x[1]-0.1, x[1]+0.05, x[1]+0.18]):
-        plt.text(j+0.06, data[num_j, 1]+0.8, f"{round(data[num_j, 1], 2)}")
+    for num_j, j in enumerate([x[1] - 0.1, x[1] + 0.04, x[1] + 0.175]):
+        plt.text(j + 0.06, data[num_j, 1] + 0.8, f"{round(data[num_j, 1], 1)}")
 
     plt.xticks(x[:-1] + bar_width / 2 + 0.07, tick_label)
     y_label = list(np.arange(0, 111, 10))
@@ -121,8 +121,103 @@ def accuracy():
     plt.show()
 
 
+def efficiency():
+    """
+    3872
+    """
+    plt.figure(dpi=240)
+    y1_data = np.array(
+        [90.87521203358968, 137.65066321690878, 160.3555119832357, 222.3560016155243, 318.00043018658954], dtype=object)
+    y2_data = np.array(
+        [96.81534353892009, 155.0369129975637, 188.8688623905182, 266.206445535024, 390.56329925855], dtype=object)
+
+    plt.xticks([2, 3, 4, 5, 6])
+    x_data = np.array([2, 3, 4, 5, 6])
+    plt.plot(x_data, y2_data, marker='o', label="AIVMM")
+    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+
+    plt.title("Efficiency")
+    plt.xlabel("Number of candidate points")
+    plt.ylabel("Running time (s)")
+    plt.legend(loc='upper center')
+    plt.show()
+
+
+def knn_efficiency():
+    """
+    3872
+    """
+    plt.figure(dpi=240)
+    y1_data = np.array(
+        [0.14771032333374023, 0.1866906483968099, 0.2343286673227946, 0.27768421173095703, 0.3180097738901774],
+        dtype=object)
+    y2_data = np.array(
+        [0.05165410041809082, 0.05733529726664225, 0.0646955172220866, 0.07232888539632161, 0.07368143399556477],
+        dtype=object)
+
+    plt.xticks([2, 3, 4, 5, 6])
+    x_data = np.array([2, 3, 4, 5, 6])
+    plt.plot(x_data, y2_data, marker='o', label="AIVMM")
+    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+
+    plt.title("KNN efficiency")
+    plt.xlabel("Number of candidate points")
+    plt.ylabel("Running time (s)")
+    plt.legend(loc='upper center')
+    plt.show()
+
+
+def shortest_path_efficiency():
+    """
+    3872
+    """
+    plt.figure(dpi=240)
+    y1_data = np.array(
+        [10.178245703379313, 17.313291788101196, 22.979520320892334, 28.774104913075764, 33.051234324773155],
+        dtype=object)
+    y2_data = np.array(
+        [21.091002146402996, 44.77033829689026, 59.96158949534098, 83.73398892084758, 98.58338602383931],
+        dtype=object)
+
+    plt.xticks([2, 3, 4, 5, 6])
+    x_data = np.array([2, 3, 4, 5, 6])
+    plt.plot(x_data, y2_data, marker='o', label="AIVMM")
+    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+
+    plt.title("Shortest path efficiency")
+    plt.xlabel("Number of candidate points")
+    plt.ylabel("Running time (s)")
+    plt.legend(loc='upper center')
+    plt.show()
+
+
+def lop_efficiency():
+    """
+    3872
+    """
+    plt.figure(dpi=240)
+    y1_data = np.array(
+        [7.302317460378011, 18.137863159179688, 34.663356939951576, 59.6609083811442, 94.52938663959503], dtype=object)
+    y2_data = np.array(
+        [9.244272629419962, 23.291958967844646, 48.442340771357216, 86.37682867050171, 161.35990238189697], dtype=object)
+
+    plt.xticks([2, 3, 4, 5, 6])
+    x_data = np.array([2, 3, 4, 5, 6])
+    plt.plot(x_data, y2_data, marker='o', label="AIVMM")
+    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+
+    plt.title("LOP efficiency")
+    plt.xlabel("Number of candidate points")
+    plt.ylabel("Running time (s)")
+    plt.legend(loc='upper center')
+    plt.show()
+
+
 if __name__ == '__main__':
     read_data()
     mean_distance_error_new()
-    print(file_sequence)
-    # accuracy()
+    accuracy()
+    efficiency()
+    knn_efficiency()
+    shortest_path_efficiency()
+    lop_efficiency()
