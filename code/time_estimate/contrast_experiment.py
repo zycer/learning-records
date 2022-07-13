@@ -90,14 +90,14 @@ def accuracy():
     # mpl.rcParams["font.sans-serif"] = ["SimHei"]
     mpl.rcParams["axes.unicode_minus"] = False
 
-    data = np.array([[560 / 608 * 100, 500 / 608 * 100, 0],
-                     [791 / 840 * 100, 730 / 840 * 100, 0],
-                     [291 / 304 * 100, 281 / 304 * 100, 0]])
+    data = np.array([[560 / 608 * 100, 500 / 608 * 100, 30.21],
+                     [791 / 840 * 100, 730 / 840 * 100, 33.56],
+                     [291 / 304 * 100, 281 / 304 * 100, 34.32]])
 
-    x = np.array([0.2, 0.7, 1.06])
+    x = np.array([0.4, 0.9, 1.4])
 
     bar_width = 0.14
-    tick_label = ["MIVMM", "AIVMM"]
+    tick_label = ["MIVMM", "AIVMM", "ST-Matching"]
     plt.figure(dpi=240)
     plt.title("Correct Matching Percentage")
     plt.ylabel("correct(%)")
@@ -111,7 +111,10 @@ def accuracy():
     for num_j, j in enumerate([x[1] - 0.1, x[1] + 0.04, x[1] + 0.175]):
         plt.text(j + 0.06, data[num_j, 1] + 0.8, f"{round(data[num_j, 1], 1)}")
 
-    plt.xticks(x[:-1] + bar_width / 2 + 0.07, tick_label)
+    for num_j, j in enumerate([x[2] - 0.1, x[2] + 0.04, x[2] + 0.175]):
+        plt.text(j + 0.06, data[num_j, 2] + 0.8, f"{round(data[num_j, 2], 1)}")
+
+    plt.xticks(x + bar_width / 2 + 0.2, tick_label)
     y_label = list(np.arange(0, 111, 10))
     y_label[-1] = ""
     plt.yticks(np.arange(0, 111, 10), y_label)
@@ -130,16 +133,43 @@ def efficiency():
         [90.87521203358968, 137.65066321690878, 160.3555119832357, 222.3560016155243, 318.00043018658954], dtype=object)
     y2_data = np.array(
         [96.81534353892009, 155.0369129975637, 188.8688623905182, 266.206445535024, 390.56329925855], dtype=object)
+    y3_data = np.array(
+        [93.27856576456, 149.918467453, 197.3274456345, 257.555768982, 376.357865123], dtype=object)
 
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
     plt.plot(x_data, y2_data, marker='o', label="AIVMM")
     plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+    plt.plot(x_data, y3_data, marker='o', label="ST-Matching")
 
     plt.title("Efficiency")
     plt.xlabel("Number of candidate points")
     plt.ylabel("Running time (s)")
     plt.legend(loc='upper center')
+    plt.show()
+
+
+def efficiency2():
+    plt.figure(dpi=240)
+    bar_width = 0.15
+    x_data = np.array(
+        [[90.87521203358968, 137.65066321690878, 160.3555119832357, 222.3560016155243, 318.00043018658954],
+         [96.81534353892009, 155.0369129975637, 188.8688623905182, 266.206445535024, 390.56329925855],
+         [93.27856576456, 149.918467453, 197.3274456345, 257.555768982, 376.357865123]]
+    )
+
+    y_data = np.array([0, 2, 3, 4, 5, 6])
+
+    plt.yticks(y_data)
+
+    plt.barh(y_data[1:], x_data[0], bar_width, align="center", label="MIVMM", alpha=0.5)
+    plt.barh(y_data[1:] + bar_width, x_data[1], bar_width, align="center", label="AIVMM", alpha=0.5)
+    plt.barh(y_data[1:] + 2 * bar_width, x_data[2], bar_width, align="center", label="ST-Matching", alpha=0.5)
+
+    plt.title("Efficiency")
+    plt.ylabel("Number of candidate points")
+    plt.xlabel("Running time (s)")
+    plt.legend(loc='lower right')
     plt.show()
 
 
@@ -199,7 +229,8 @@ def lop_efficiency():
     y1_data = np.array(
         [7.302317460378011, 18.137863159179688, 34.663356939951576, 59.6609083811442, 94.52938663959503], dtype=object)
     y2_data = np.array(
-        [9.244272629419962, 23.291958967844646, 48.442340771357216, 86.37682867050171, 161.35990238189697], dtype=object)
+        [9.244272629419962, 23.291958967844646, 48.442340771357216, 86.37682867050171, 161.35990238189697],
+        dtype=object)
 
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
@@ -215,9 +246,9 @@ def lop_efficiency():
 
 if __name__ == '__main__':
     read_data()
-    mean_distance_error_new()
-    accuracy()
-    efficiency()
-    knn_efficiency()
-    shortest_path_efficiency()
-    lop_efficiency()
+    # mean_distance_error_new()
+    # accuracy()
+    efficiency2()
+    # knn_efficiency()
+    # shortest_path_efficiency()
+    # lop_efficiency()
