@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from LinearRegression.linear_reg import LinearRegression
+from linear_reg import LinearRegression
 
 
 def linear_reg(data_path, attr):

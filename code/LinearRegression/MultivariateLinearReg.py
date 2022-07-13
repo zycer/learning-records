@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objs as go
 import plotly
 
-from .linear_reg import LinearRegression
+from linear_reg import LinearRegression
 
 
 # plotly.offline.init_notebook_mode()

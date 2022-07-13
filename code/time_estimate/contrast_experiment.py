@@ -5,6 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from geopy.distance import geodesic
 import matplotlib as mpl
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
+from mpl_toolkits.mplot3d import Axes3D
 
 file_sequence = []
 data_list = []
@@ -250,6 +253,26 @@ def lop_efficiency():
     plt.show()
 
 
+def accuracy_efficiency():
+    x_candi_num = np.array([2, 3, 4, 5, 6, 7, 8, 9, 10])
+    y_runtime = np.array(
+        [90.87521203358968, 137.65066321690878, 160.3555119832357, 222.3560016155243, 318.00043018658954, 550, 720,
+         880, 1080])
+    z_accuracy = np.array([75, 80, 88, 90, 91, 91.3, 91.6, 91.6, 91.6])
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    # 最优
+    # ax.plot(y_runtime, x_candi_num, z_accuracy)
+    # ax.view_init(20, -120)
+
+    ax.plot(y_runtime, x_candi_num, z_accuracy)
+    ax.view_init(20, 130)
+    ##
+
+    plt.show()
+
+
 if __name__ == '__main__':
     read_data()
     mean_distance_error_new()
@@ -258,3 +281,4 @@ if __name__ == '__main__':
     knn_efficiency()
     shortest_path_efficiency()
     lop_efficiency()
+    accuracy_efficiency()

@@ -1,10 +1,10 @@
 import random
 
 from random_data2 import EV
-from LinearRegression.MultivariateLinearReg import multivariate_linear_reg
-from LinearRegression.multinomial_regression import multinomial_reg
-from LinearRegression.univariate_linear_reg import linear_reg
-from LinearRegression.multivariate_multinomial_regression import multivariate_mul_regression
+from MultivariateLinearReg import multivariate_linear_reg
+from multinomial_regression import multinomial_reg
+from univariate_linear_reg import linear_reg
+from multivariate_multinomial_regression import multivariate_mul_regression
 
 if __name__ == "__main__":
     # 线性
@@ -20,6 +20,6 @@ if __name__ == "__main__":
     ev_3 = EV(name="ev_3", base_number=1.024, battery_health=100,
               temperature=20, ev_weight=3000, load=0, standard_distance_index=60)
     ev_3.generate_ev_data(200)
-    # linear_reg(ev_3.file_path, ("weight", "distance"))
-    # multinomial_reg(ev_3.file_path, ("soc", "battery_health", "distance"))
+    linear_reg(ev_3.data_path, ("weight", "distance"))
+    multinomial_reg(ev_3.data_path, ("soc", "battery_health", "distance"))
     multivariate_mul_regression(ev_3.data_path, ev_3.effect_data_path, ev_3.attribute)
