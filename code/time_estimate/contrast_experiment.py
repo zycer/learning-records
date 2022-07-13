@@ -55,14 +55,14 @@ def mean_distance_error():
 
 
 def mean_distance_error_new():
-    data = np.array([[10.4092, 15.4946, 0],
-                     [9.9823, 15.8946, 0],
-                     [8.8378, 13.3767, 0]])
+    data = np.array([[15.4946, 16.3411, 10.4092],
+                     [15.8946, 17.1266, 9.9823],
+                     [13.3767, 13.9556, 8.8378]])
 
-    x_list = np.array([0.2, 0.7, 1])
+    x_list = np.array([0.2, 0.7, 1.2])
 
     bar_width = 0.14
-    tick_label = ["MIVMM", "AIVMM"]
+    tick_label = ["AIVMM", "ST-Matching", "MIVMM"]
     plt.figure(dpi=240)
     plt.title("mean distance error")
     plt.ylabel("distance error(m)")
@@ -71,12 +71,15 @@ def mean_distance_error_new():
     plt.bar(x_list + 2 * bar_width, data[2], bar_width, align="center", label="Highway", alpha=0.5)
 
     for num_j, j in enumerate([x_list[0] - 0.1, x_list[0] + 0.04, x_list[0] + 0.18]):
-        plt.text(j + 0.05, data[num_j, 0] + 0.3, f"{round(data[num_j, 0], 2)}")
+        plt.text(j + 0.03, data[num_j, 0] + 0.3, f"{round(data[num_j, 0], 2)}")
 
     for num_j, j in enumerate([x_list[1] - 0.1, x_list[1] + 0.05, x_list[1] + 0.18]):
-        plt.text(j + 0.04, data[num_j, 1] + 0.3, f"{round(data[num_j, 1], 2)}")
+        plt.text(j + 0.03, data[num_j, 1] + 0.3, f"{round(data[num_j, 1], 2)}")
 
-    plt.xticks(x_list[:-1] + bar_width / 2 + 0.07, tick_label)
+    for num_j, j in enumerate([x_list[2] - 0.1, x_list[2] + 0.06, x_list[2] + 0.2]):
+        plt.text(j + 0.03, data[num_j, 2] + 0.3, f"{round(data[num_j, 2], 2)}")
+
+    plt.xticks(x_list + bar_width / 2 + 0.07, tick_label)
     y_label = list(np.arange(0, 21, 5))
     y_label[-1] = ""
     plt.yticks(np.arange(0, 21, 5), y_label)
@@ -114,7 +117,7 @@ def accuracy():
     for num_j, j in enumerate([x[2] - 0.1, x[2] + 0.04, x[2] + 0.175]):
         plt.text(j + 0.06, data[num_j, 2] + 0.8, f"{round(data[num_j, 2], 1)}")
 
-    plt.xticks(x + bar_width / 2 + 0.2, tick_label)
+    plt.xticks(x + bar_width / 2 + 0.07, tick_label)
     y_label = list(np.arange(0, 111, 10))
     y_label[-1] = ""
     plt.yticks(np.arange(0, 111, 10), y_label)
@@ -160,7 +163,7 @@ def efficiency2():
 
     y_data = np.array([0, 2, 3, 4, 5, 6])
 
-    plt.yticks(y_data)
+    plt.yticks(y_data + 0.15, y_data)
 
     plt.barh(y_data[1:], x_data[0], bar_width, align="center", label="MIVMM", alpha=0.5)
     plt.barh(y_data[1:] + bar_width, x_data[1], bar_width, align="center", label="AIVMM", alpha=0.5)
@@ -182,18 +185,19 @@ def knn_efficiency():
         [0.14771032333374023, 0.1866906483968099, 0.2343286673227946, 0.27768421173095703, 0.3180097738901774],
         dtype=object)
     y2_data = np.array(
-        [0.05165410041809082, 0.05733529726664225, 0.0646955172220866, 0.07232888539632161, 0.07368143399556477],
+        [0.05165410041809082, 0.05733529726664225, 0.0646955172220866, 0.07232888539632161, 0.08368143399556477],
         dtype=object)
 
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
     plt.plot(x_data, y2_data, marker='o', label="AIVMM")
-    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+    plt.plot(x_data, y1_data, marker='D', label="MIVMM")
 
     plt.title("KNN efficiency")
     plt.xlabel("Number of candidate points")
     plt.ylabel("Running time (s)")
     plt.legend(loc='upper center')
+    plt.grid()
     plt.show()
 
 
@@ -212,12 +216,13 @@ def shortest_path_efficiency():
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
     plt.plot(x_data, y2_data, marker='o', label="AIVMM")
-    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+    plt.plot(x_data, y1_data, marker='D', label="MIVMM")
 
     plt.title("Shortest path efficiency")
     plt.xlabel("Number of candidate points")
     plt.ylabel("Running time (s)")
     plt.legend(loc='upper center')
+    plt.grid()
     plt.show()
 
 
@@ -235,20 +240,21 @@ def lop_efficiency():
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
     plt.plot(x_data, y2_data, marker='o', label="AIVMM")
-    plt.plot(x_data, y1_data, marker='o', label="MIVMM")
+    plt.plot(x_data, y1_data, marker='D', label="MIVMM")
 
     plt.title("LOP efficiency")
     plt.xlabel("Number of candidate points")
     plt.ylabel("Running time (s)")
     plt.legend(loc='upper center')
+    plt.grid()
     plt.show()
 
 
 if __name__ == '__main__':
     read_data()
-    # mean_distance_error_new()
-    # accuracy()
+    mean_distance_error_new()
+    accuracy()
     efficiency2()
-    # knn_efficiency()
-    # shortest_path_efficiency()
-    # lop_efficiency()
+    knn_efficiency()
+    shortest_path_efficiency()
+    lop_efficiency()
