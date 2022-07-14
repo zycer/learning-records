@@ -260,6 +260,12 @@ def accuracy_efficiency():
          880, 1080])
     z_accuracy = np.array([75, 80, 88, 90, 91, 91.3, 91.6, 91.6, 91.6])
 
+    y = np.array([89, 120, 165, 230, 330, 540, 710, 811, 1111])
+    z = np.array([76, 81, 86, 89, 90.4, 91, 91.1, 91.2, 91.2])
+
+    y1 = np.array([88.8, 119.1, 165.66, 222.22, 333.33, 544.44, 710.111, 811.99, 1114.66])
+    z1 = np.array([76.1, 81.2, 86.6, 89.5, 90.4, 91.4, 91.1, 91.6, 91.6])
+
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     # 最优
@@ -267,6 +273,8 @@ def accuracy_efficiency():
     # ax.view_init(20, -120)
 
     ax.plot(y_runtime, x_candi_num, z_accuracy)
+    ax.plot(y, x_candi_num, z)
+    ax.plot(y1, x_candi_num, z1)
     ax.view_init(20, 130)
     ##
 
@@ -274,11 +282,11 @@ def accuracy_efficiency():
 
 
 if __name__ == '__main__':
-    read_data()
-    mean_distance_error_new()
-    accuracy()
-    efficiency2()
-    knn_efficiency()
-    shortest_path_efficiency()
-    lop_efficiency()
+    # read_data()
+    # mean_distance_error_new()
+    # accuracy()
+    # efficiency2()
+    # knn_efficiency()
+    # shortest_path_efficiency()
+    # lop_efficiency()
     accuracy_efficiency()

@@ -100,7 +100,7 @@ def create_map(candi_file, start, end):
 
 
 if __name__ == '__main__':
-    start = 0
+    start = 20
     end = start + 1
     first_flag = True
     colors = []
