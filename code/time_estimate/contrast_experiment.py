@@ -254,27 +254,32 @@ def lop_efficiency():
 
 
 def accuracy_efficiency():
-    x_candi_num = np.array([2, 3, 4, 5, 6, 7, 8, 9, 10])
-    y_runtime = np.array(
-        [90.87521203358968, 137.65066321690878, 160.3555119832357, 222.3560016155243, 318.00043018658954, 550, 720,
-         880, 1080])
-    z_accuracy = np.array([75, 80, 88, 90, 91, 91.3, 91.6, 91.6, 91.6])
+    x_candi_num = np.array([2, 3, 4, 5, 6, 7])
 
-    y = np.array([89, 120, 165, 230, 330, 540, 710, 811, 1111])
-    z = np.array([76, 81, 86, 89, 90.4, 91, 91.1, 91.2, 91.2])
+    # 城市道路
+    y_runtime1 = np.array([19.1157, 23.2805, 25.650, 35.6710, 52.3826, 67.5416])
+    z_accuracy1 = np.array([77.16, 82.12, 87.96, 92.01, 92.37, 92.49])
 
-    y1 = np.array([88.8, 119.1, 165.66, 222.22, 333.33, 544.44, 710.111, 811.99, 1114.66])
-    z1 = np.array([76.1, 81.2, 86.6, 89.5, 90.4, 91.4, 91.1, 91.6, 91.6])
+    # 快速路
+    y_runtime2 = np.array([10.3376, 14.9919, 20.8841, 29.9615, 53.4643, 63.4956])
+    z_accuracy2 = np.array([78.69, 83.28, 87.21, 91.80, 92.95, 92.95])
+
+    y_runtime3 = np.array([7.4686, 11.3555, 16.6382, 25.8474, 40.8299, 58.0918])
+    z_accuracy3 = np.array([77.78, 83.98, 88.56, 92.16, 93.46, 93.79])
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    # 最优
-    # ax.plot(y_runtime, x_candi_num, z_accuracy)
-    # ax.view_init(20, -120)
 
-    ax.plot(y_runtime, x_candi_num, z_accuracy)
-    ax.plot(y, x_candi_num, z)
-    ax.plot(y1, x_candi_num, z1)
+    ax.plot(y_runtime1, x_candi_num, z_accuracy1, label="Branch")
+    ax.plot(y_runtime2, x_candi_num, z_accuracy2, label="Expressway")
+    ax.plot(y_runtime3, x_candi_num, z_accuracy3, label="Highway")
+
+    ax.set_title("Accuracy and efficiency")
+    ax.set_xlabel('Runtime(s)')
+    ax.set_ylabel('Number of candidate points')
+    ax.set_zlabel('accuracy(%)')
+
+    ax.legend(loc='upper right')
     ax.view_init(20, 130)
     ##
 
@@ -282,11 +287,11 @@ def accuracy_efficiency():
 
 
 if __name__ == '__main__':
-    # read_data()
-    # mean_distance_error_new()
-    # accuracy()
-    # efficiency2()
-    # knn_efficiency()
-    # shortest_path_efficiency()
-    # lop_efficiency()
+    read_data()
+    mean_distance_error_new()
+    accuracy()
+    efficiency2()
+    knn_efficiency()
+    shortest_path_efficiency()
+    lop_efficiency()
     accuracy_efficiency()

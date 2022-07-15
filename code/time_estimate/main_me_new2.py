@@ -420,8 +420,9 @@ class AIVMM:
 
         matched_path = []
 
-        c = np.argmax([f_ik[n - 1][s] for s in range(candi_count[-1])])
-        f_value_cik = max([f_ik[n - 1][s] for s in range(candi_count[-1])])
+        _temp = [f_ik[n - 1][s] for s in range(candi_count[-1])]
+        c = np.argmax(_temp)
+        f_value_cik = max(_temp)
 
         for i in range(1, n).__reversed__():
             matched_path.append(c)
@@ -780,7 +781,7 @@ def plot_road(road_obj, is_label=False):
 
 
 if __name__ == "__main__":
-    Main(neighbor_num=2).main()
+    Main(neighbor_num=7).main()
 
     # KNN算法比较
     # r = redis.Redis(**REDIS_INFO, decode_responses=True)
