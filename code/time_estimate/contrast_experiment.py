@@ -279,7 +279,7 @@ def accuracy_efficiency():
     ax.set_ylabel('Number of candidate points')
     ax.set_zlabel('accuracy(%)')
 
-    ax.legend(loc='upper right')
+    ax.legend(loc='upper center')
     ax.view_init(20, 130)
     ##
 
