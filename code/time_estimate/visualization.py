@@ -1,3 +1,4 @@
+import json
 import os
 import folium
 import webbrowser
@@ -5,6 +6,10 @@ import pandas as pd
 import random
 
 import contrast_experiment
+
+
+first_flag = True
+colors = []
 
 
 def save_map(map_obj, map_name):
@@ -25,13 +30,6 @@ def save_map(map_obj, map_name):
 
 
 def create_map(candi_file, start, end):
-    tiles = {
-        0: "OpenStreetMap",
-        1: "Stamen Terrain",
-        2: "Stamen Toner",
-        3: "Mapbox Bright",
-        4: "Mapbox Control Room"
-    }
     radius = 4
     porto_map = folium.Map([41.141412, -8.618643], tiles=tiles[1], zoom_start=16)
     dataframe = pd.read_csv(candi_file, encoding="utf-8", sep=",")
@@ -99,20 +97,60 @@ def create_map(candi_file, start, end):
     return porto_map
 
 
-if __name__ == '__main__':
-    start = 3
+def start_contrast():
+    start = 1000
     end = start + 1
-    first_flag = True
-    colors = []
+
     for num, file_name in enumerate(os.listdir("data/candidate_data")):
         file_path = os.path.join("data/candidate_data", file_name)
 
+        global first_flag
         if num > 0:
             first_flag = False
 
         porto_map = create_map(file_path, start, end)
+        # porto_map.add_child(folium.LatLngPopup())
         save_map(porto_map, file_name)
 
     # contrast_experiment.read_data()
     # contrast_experiment.mean_distance_error()
     # contrast_experiment.accuracy()
+
+
+def paper_contrast():
+    def parse_zhch(s):
+        return str(str(s).encode('ascii', 'xmlcharrefreplace'))[2:-1]
+
+    porto_map = folium.Map([41.141412, -8.618643], tiles=tiles[1], zoom_start=16)
+
+    tooltip = parse_zhch('嘿！')
+    with open("experimental_data/lala.json") as f:
+        data = json.load(f)
+        for one in data:
+            current_color = "#%06x" % random.randint(0, 0xFFFFFF)
+            point = one["point"]
+            candidate = one["candidate"]
+
+            folium.Circle(radius=3, location=(point[0], point[1]),
+                          popup=f"(采样点)", color=current_color, fill=True, fill_opacity=1).add_to(
+                porto_map)
+
+            for candi in candidate:
+                folium.Circle(radius=3, location=(candi[0], candi[1]),
+                              popup=tooltip, color=current_color, fill=True, fill_opacity=0.3).add_to(
+                    porto_map)
+
+        save_map(porto_map, "lala.html")
+
+
+if __name__ == '__main__':
+    tiles = {
+        0: "OpenStreetMap",
+        1: "Stamen Terrain",
+        2: "Stamen Toner",
+        3: "Mapbox Bright",
+        4: "Mapbox Control Room"
+    }
+
+    paper_contrast()
+

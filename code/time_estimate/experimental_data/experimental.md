@@ -542,7 +542,57 @@ AIVMM：280
             1372638342: 89/94
             1372646610: 41/44
 
+    
+采样点1：
+        Latitude: 41.1501
+        Longitude: -8.6122
+    候选点1：
+        Latitude: 41.1502
+        Longitude: -8.6123
+    候选点2：
+        Latitude: 41.1502
+        Longitude: -8.6121
+    候选点3：
+        Latitude: 41.1501
+        Longitude: -8.6121
+
+采样点2：
+        Latitude: 41.1499
+        Longitude: -8.6132
+    候选点1：
+        Latitude: 41.1500
+Longitude: -8.6132
+    候选点2：
+        Latitude: 41.1500
+Longitude: -8.6130
+    候选点3：
+        Latitude: 41.1499
+Longitude: -8.6130
 
 
+采样点3：
+        Latitude: 41.1485
+Longitude: -8.6126
+    候选点1：
+Latitude: 41.1485
+Longitude: -8.6130
+    候选点2：
+        Latitude: 41.1482
+Longitude: -8.6126
+    候选点3：
+Latitude: 41.1485
+Longitude: -8.6122
 
 
+采样点4：
+        Latitude: 41.1485
+Longitude: -8.6140
+    候选点1：
+Latitude: 41.1483
+Longitude: -8.6140
+    候选点2：
+        Latitude: 41.1486
+Longitude: -8.6143
+    候选点3：
+Latitude: 41.1482
+Longitude: -8.6144
