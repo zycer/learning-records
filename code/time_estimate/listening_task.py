@@ -19,7 +19,7 @@ def listening_task():
     r = redis.Redis(**redis_info, decode_responses=True)
     r.delete("trajectory")
     trajectory_data = {}
-    file_path = "data/test_gps"
+    file_path = "data/gps_trajectory"
     result = DBManager().exec_sql("select file_name,num from finish_flag")
     finish_dict = {}
 
@@ -37,7 +37,7 @@ def listening_task():
         tra_iter.get_chunk(finish_dict[name])
         try:
             while True:
-                if r.llen("trajectory") > 100:
+                if r.llen("trajectory") > 1000:
                     time.sleep(10)
                 else:
                     tra_one = tra_iter.get_chunk(1)
