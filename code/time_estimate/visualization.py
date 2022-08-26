@@ -101,7 +101,7 @@ def create_map(candi_file, start, end):
 
 def start_contrast():
     start = 0
-    end = start + 1
+    end = start + 10
 
     for num, file_name in enumerate(os.listdir("data/candidate_data")):
         file_path = os.path.join("data/candidate_data", file_name)
@@ -149,7 +149,7 @@ def all_data_show():
     r = redis.Redis(**REDIS_INFO, decode_responses=True)
     porto_map = folium.Map([41.141412, -8.618643], tiles=tiles[1], zoom_start=16)
 
-    trajectory_data = r.lrange("trajectory", 0, -1)
+    trajectory_data = r.lrange("trajectory", 0, -1)[:100]
     for index, tra_data in enumerate(trajectory_data):
         polyline = json.loads(tra_data)["polyline"]
         for point in polyline:
