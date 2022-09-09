@@ -480,7 +480,8 @@ class AIVMM:
         n = len(trajectory)
         final_path = []
         lop_seq, f_value_seq, t_time = self.find_local_optimal_path_sequence(trajectory, candidate_roads, candidate_points, candidate_distance)
-
+        for i in lop_seq:
+            print(i)
         for lop in lop_seq:
             for item in lop:
                 for k in range(n - 1):
@@ -781,7 +782,7 @@ def plot_road(road_obj, is_label=False):
 
 
 if __name__ == "__main__":
-    Main(neighbor_num=7).main()
+    Main(neighbor_num=3).main()
 
     # KNN算法比较
     # r = redis.Redis(**REDIS_INFO, decode_responses=True)
