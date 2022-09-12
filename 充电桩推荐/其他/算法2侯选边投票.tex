@@ -9,7 +9,7 @@
     \floatname{algorithm}{Algorithm}
     \setcounter{algorithm}{1}
     \caption{Candidate Edge Voting} 
-    \hspace*{0.02in} {\bf Input:} Candidate graph $\mathcal{G}'=\{\mathcal{V},\mathcal{E}\}$,locally optimal path sequence $lop\_seq$ \\ 
+    \hspace*{0.02in} {\bf Input:} Candidate graph $\mathcal{G}'=\{\mathcal{V},\mathcal{E}\}$,local optimal path sequence $lop\_seq$ \\ 
     \hspace*{0.02in} {\bf Output:} Final matching path $f\_path$: $[a_0^{s_0},a_1^{s_1},\dots,a_{n-1}^{s_{n-1}}]$
     \begin{algorithmic}[1]
     \iffalse
@@ -25,10 +25,10 @@
         \EndFor
 	\State $f\_path[0],f\_path[1]=\mathop{\mathrm{argmax}}_{a_{from},a_{to}}{(\mathcal{G}'.edges[(0,a_{from}),(1,a_{to})],}$
 	\State $\qquad \qquad \quad a_{from}=0,1,\dots,\mathcal{G}'.vertex[0].a\_num-1,$
-	\State $\qquad \qquad \quad a_{to}=0,1,\dots,\mathcal{G}'.vertex[0].a\_num-1)$
+	\State $\qquad \qquad \quad a_{to}=0,1,\dots,\mathcal{G}'.vertex[1].a\_num-1)$
 	\State \Return $lop\_seq$
 	\For{$i=2 \to n-1$}
-		\State $c_to = \mathop{\mathrm{argmax}}_{a_{to}}{(\mathcal{G}'.edges[(i-1,f\_path[i-1]),(i,a_{to})],}$
+		\State $a_{to} = \mathop{\mathrm{argmax}}_{a_{to}}{(\mathcal{G}'.edges[(i-1,f\_path[i-1]),(i,a_{to})],}$
 		\State $\qquad \, \, \, a_{to}=0,1,\dots,\mathcal{G}'.vertex[i].a\_num-1)$
 		\State $f\_path[i]=a_{to}$
 	\EndFor

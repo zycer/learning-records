@@ -8,40 +8,42 @@
 \begin{algorithm} 
     \floatname{algorithm}{Algorithm}
     \setcounter{algorithm}{0}
-    \caption{Find local optimal path sequence} 
+    \caption{Find The Local Optimal Path Sequence} 
     \hspace*{0.02in} {\bf Input:} Candidate graph $\mathcal{G}'=\{\mathcal{V},\mathcal{E}\}$,distance weight matrix $W$,weighted score matrix $\Phi$,number of sampling points $n$ \\ 
-    \hspace*{0.02in} {\bf Output:} Local optimal path $lop\_seq$: $[[a_0^{s_0},a_1^{s_1},\dots,a_{n-1}^{s_{n-1}}],\dots]$
+    \hspace*{0.02in} {\bf Output:} Local optimal path $lop\_seq$: $[[[a_0^{s_0},a_1^{s_1},\dots,a_{n-1}^{s_{n-1}}],\dots],\dots]$
     \begin{algorithmic}[1]
     \iffalse
     \fi
 	\State $lop\_seq=[]$
         \For{$i=0 \to n-1$}
-            \State 
-			$a\_num$ = $\mathcal{G}'.vertex[i].a\_num$ 
-			\For{$k=0 \to a\_num$}
-				\State /*Let $cw_{i,k}[]$ denote the hightest score computed so far*/ 
+            \State /*$\mathcal{G}'.vertex[i].a\_num$ is the number of candidates for sampling point $p_i$*/
+			\For{$k=0 \to \mathcal{G}'.vertex[i].a\_num$}
+				\State /*Let $cw_{i,k}[]$ denote the highest score computed so far*/ 
 				\State $cw_{i,k} = []$ 
 				\State /*Let $pre\_cw_{i,k}[]$ denote the parent of current candidate*/ 
 				\State $pre\_cw_{i,k} = []$ 
-				\For{$s=0 \to n-1$}
+				\For{$s=0 \to\mathcal{G}'.vertex[0].a\_num$}
 					\State $cw_{i,k}[a_0^s] = W_i^{(0)}N(a_0^s)$
 				\EndFor
 				\For{$j=1 \to n-1$}
 					\For{$s=0 \to =\mathcal{G}'.vertex[j].a\_num$}
-						\State $temp=[cw_{i,k}[a_{j-1}^t]+\phi_{ts}^{(i,j)},t=0,1,\dots,a\_num-1]$
+						\State $temp=[cw_{i,k}[a_{j-1}^t]+\psi_{ts}^{(i,j)},$
+						\State $\qquad \quad \quad t=0,1,\dots,\mathcal{G}'.vertex[j-1].a\_num-1]$
 						\State $cw_{i,k}[a_{j}^s] = \max{(temp)}$
 						\State $pre\_cw_{i,k}[a_j^s] = \mathop{\mathrm{argmax}}_{a_{j-1}^t}{(temp)}
 $
 					\EndFor
 				\EndFor
-				\State /*Let lop be the list of locally optimal paths*/
+				\State /*Let lop be the list of local optimal path*/
 				\State $lop = []$
-				\State $a = \mathop{\mathrm{argmax}}_{a_{n-1}^s}{(cw_{i,k}[a_{n-1}^s],s=0,1,\dots,\mathcal{G}'.vertex[n-1].a\_num-1)}$
+				\State $a = \mathop{\mathrm{argmax}}_{a_{n-1}^s}{(cw_{i,k}[a_{n-1}^s],}$
+				\State $\qquad \qquad \qquad \quad \; s=0,1,\dots,\mathcal{G}'.vertex[n-1].a\_num-1)$
 				\For{$j=n-1 \to 1$}
 					\State $lop$.add($a$)
-					\State a = $pre\_cw_{j,k}[a]$
+					\State $a = pre\_cw_{j,k}[a]$
 				\EndFor
-				\State $lop\_seq[i]$.add($lop$)
+				\State $lop$.add($a$)
+				\State $lop\_seq[i]$.add($lop$.reverse())
 			\EndFor
         \EndFor
 	\State \Return $lop\_seq$
