@@ -14,14 +14,14 @@
     \begin{algorithmic}[1]
     \iffalse
     \fi
-	\State $lop\_seq=[]$
+	\State $lop\_seq=[\ ]$
         \For{$i=0 \to n-1$}
             \State /*$\mathcal{G}'.vertex[i].a\_num$ is the number of candidates for sampling point $p_i$*/
 			\For{$k=0 \to \mathcal{G}'.vertex[i].a\_num$}
-				\State /*Let $cw_{i,k}[]$ denote the highest score computed so far*/ 
-				\State $cw_{i,k} = []$ 
-				\State /*Let $pre\_cw_{i,k}[]$ denote the parent of current candidate*/ 
-				\State $pre\_cw_{i,k} = []$ 
+				\State /*Let $cw_{i,k}[\ ]$ denote the highest score computed so far*/ 
+				\State $cw_{i,k} = [\ ]$ 
+				\State /*Let $pre\_cw_{i,k}[\ ]$ denote the parent of current candidate*/ 
+				\State $pre\_cw_{i,k} = [\ ]$ 
 				\For{$s=0 \to\mathcal{G}'.vertex[0].a\_num$}
 					\State $cw_{i,k}[a_0^s] = W_i^{(0)}N(a_0^s)$
 				\EndFor
@@ -34,7 +34,7 @@
 $
 					\EndFor
 				\EndFor
-				\State /*Let lop be the list of local optimal path*/
+				\State /*Let $lop$ be the list of local optimal path*/
 				\State $lop = []$
 				\State $a = \mathop{\mathrm{argmax}}_{a_{n-1}^s}{(cw_{i,k}[a_{n-1}^s],}$
 				\State $\qquad \qquad \qquad \quad \; s=0,1,\dots,\mathcal{G}'.vertex[n-1].a\_num-1)$

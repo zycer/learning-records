@@ -281,17 +281,35 @@ def accuracy_efficiency():
 
     ax.legend(loc='upper center')
     ax.view_init(20, 130)
-    ##
 
     plt.show()
 
 
+def three_d_tree():
+    x = [[[0, 0], [0, 0]], [[10, 10], [10, 10]]]
+    y = [[[0, 0], [10, 10]], [[0, 0], [10, 10]]]
+    z = [[[0, 10], [0, 10]], [[0, 10], [0, 10]]]
+
+    point_x = [2, 2, 6, 7, 5, 7, 9]
+    point_y = [4, 8, 6, 2, 6, 3, 4]
+    point_z = [5, 6, 3, 4, 6, 6, 1]
+    filled = np.ones((1, 1, 1))
+    cFace = np.where(filled, '#00AAAA00', '#00AAAA00')
+    cEdge = np.where(filled, '#000000', '#000000')
+    ax = plt.subplot(projection='3d')
+    ax.axis('off')
+    ax.voxels(x, y, z, filled=filled, facecolors=cFace, edgecolors=cEdge, linewidth=0.3)
+    ax.scatter(point_x, point_y, point_z, c="black")
+    plt.show()
+
+
 if __name__ == '__main__':
-    read_data()
-    mean_distance_error_new()
-    accuracy()
-    efficiency2()
-    knn_efficiency()
-    shortest_path_efficiency()
-    lop_efficiency()
-    accuracy_efficiency()
+    three_d_tree()
+    # read_data()
+    # mean_distance_error_new()
+    # accuracy()
+    # efficiency2()
+    # knn_efficiency()
+    # shortest_path_efficiency()
+    # lop_efficiency()
+    # accuracy_efficiency()
