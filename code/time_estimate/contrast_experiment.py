@@ -293,13 +293,79 @@ def three_d_tree():
     point_x = [2, 2, 6, 7, 5, 7, 9]
     point_y = [4, 8, 6, 2, 6, 3, 4]
     point_z = [5, 6, 3, 4, 6, 6, 1]
+
+    plane_1 = {
+        "x": [[[6, 6], [6, 6]]],
+        "y": [[[0, 0], [10, 10]]],
+        "z": [[[0, 10], [0, 10]]]
+    }
+
+    plane_2 = {
+        "x": [[[0, 0], [6, 6]]],
+        "y": [[[6, 6], [6, 6]]],
+        "z": [[[0, 10], [0, 10]]]
+    }
+
+    plane_3 = {
+        "x": [[[10, 10], [6, 6]]],
+        "y": [[[3, 3], [3, 3]]],
+        "z": [[[0, 10], [0, 10]]]
+    }
+
+    plane_4 = {
+        "x": [[[0, 6], [0, 6]]],
+        "y": [[[0, 0], [6, 6]]],
+        "z": [[[5, 5], [5, 5]]]
+    }
+
+    plane_5 = {
+        "x": [[[0, 6], [0, 6]]],
+        "y": [[[6, 6], [10, 10]]],
+        "z": [[[6, 6], [6, 6]]]
+    }
+
+    plane_6 = {
+        "x": [[[10, 6], [10, 6]]],
+        "y": [[[0, 0], [3, 3]]],
+        "z": [[[4, 4], [4, 4]]]
+    }
+
+    plane_7 = {
+        "x": [[[10, 6], [10, 6]]],
+        "y": [[[3, 3], [10, 10]]],
+        "z": [[[1, 1], [1, 1]]]
+    }
+
     filled = np.ones((1, 1, 1))
     cFace = np.where(filled, '#00AAAA00', '#00AAAA00')
     cEdge = np.where(filled, '#000000', '#000000')
-    ax = plt.subplot(projection='3d')
-    ax.axis('off')
+
+    cFace_1 = np.where(filled, '#CCCCCC1A', '#CCCCCC1A')
+    cEdge_1 = np.where(filled, '#000000', '#000000')
+
+    fig = plt.figure(figsize=(8, 6), dpi=240)
+
+    ax = fig.add_subplot(projection='3d')
+    # ax.axis('off')
+    ax.grid(False)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    ax.set_zlim(0, 10)
+
     ax.voxels(x, y, z, filled=filled, facecolors=cFace, edgecolors=cEdge, linewidth=0.3)
+    ax.voxels(plane_1["x"], plane_1["y"], plane_1["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_2["x"], plane_2["y"], plane_2["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_3["x"], plane_3["y"], plane_3["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_4["x"], plane_4["y"], plane_4["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_5["x"], plane_5["y"], plane_5["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_6["x"], plane_6["y"], plane_6["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_7["x"], plane_7["y"], plane_7["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
     ax.scatter(point_x, point_y, point_z, c="black")
+
+    ax.set_xlabel('$x^{(1)}$')
+    ax.set_ylabel('$x^{(2)}$')
+    ax.set_zlabel('$x^{(3)}$')
+
     plt.show()
 
 
