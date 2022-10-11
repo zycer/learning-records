@@ -40,7 +40,7 @@ class BaseRoadNetwork:
                 # traffic_graph.add_node(intersec_attr_dict["node_id"], **intersec_attr_dict)
 
         for road_one in self.roads_dict.values():
-            link_id = road_one["link_id"]
+            link_id = int(road_one["link_id"])
             del road_one["link_id"]
             del road_one["geometry"]
             if self.usage == "match":
