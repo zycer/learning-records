@@ -2,7 +2,7 @@ import MySQLdb
 import pandas as pd
 import numpy as np
 
-from .constants import ROAD_MAX_SPEED as RMS
+from constants import ROAD_MAX_SPEED as RMS
 
 
 def get_road_data(road_path):
@@ -26,11 +26,12 @@ def get_road_data(road_path):
     to_vertexes = road_data["to_node_id"].values
     geometries = list(map(parse_road_nodes, np.array(list(map(lambda x: x[12:-1], road_data["geometry"].values)))))
     mileages = road_data["length"].values
+    lanes = road_data["lanes"].values
     average_speed = [known_roads[idx] if idx in known_roads.keys() else 0 for idx in road_ids]
     free_speed = [RMS.get(road_data["link_type_name"][i], RMS["other"]) if np.isnan(f_speed) else f_speed for i, f_speed
                   in enumerate(road_data["free_speed"].values)]
 
-    return zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, free_speed, average_speed, geometries)
+    return zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, lanes, free_speed, average_speed, geometries)
 
 
 def get_intersection_data(interaction_path):
