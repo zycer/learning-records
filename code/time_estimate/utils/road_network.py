@@ -1,9 +1,9 @@
 from pathlib import Path
-
+import os
 import networkx as nx
 
-from .constants import ROAD_DATA_PATH, INTERSEC_DATA_PATH, GRAPH_DATA, ROAD_ATTR, INTERSEC_ATTR
-from .tools import DBManager, get_road_data, get_intersection_data, get_graph_data
+from constants import ROAD_DATA_PATH, INTERSEC_DATA_PATH, GRAPH_DATA, ROAD_ATTR, INTERSEC_ATTR
+from tools import get_road_data, get_intersection_data, get_graph_data
 
 
 class BaseRoadNetwork:
@@ -12,9 +12,13 @@ class BaseRoadNetwork:
         self.road_graph = nx.DiGraph()
         self.roads_dict = {}
         self.intersection_dict = {}
-        self.__init_graph()
+        if usage == "match":
+            self.init_graph()
 
-    def __init_graph(self):
+    def init_graph(self):
+        cur_path = os.path.abspath(os.path.dirname(__file__))
+        work_path = cur_path + "\\.." if "utils" in cur_path else cur_path
+        os.chdir(work_path)
         road_data = [get_road_data(road_file) for road_file in
                      Path(ROAD_DATA_PATH).iterdir()]  # save road data iterator
         intersection_data = [get_intersection_data(intersection_file) for intersection_file in
@@ -25,6 +29,7 @@ class BaseRoadNetwork:
         for road_iter in road_data:
             for road_one_info in road_iter:
                 road_attr_dict = dict(zip(ROAD_ATTR, road_one_info))
+
                 self.roads_dict[road_attr_dict["link_id"]] = road_attr_dict
                 # traffic_graph.add_edge(road_attr_dict["from_node_id"], road_attr_dict["to_node_id"], **road_attr_dict)
 
@@ -37,15 +42,17 @@ class BaseRoadNetwork:
         for road_one in self.roads_dict.values():
             link_id = road_one["link_id"]
             del road_one["link_id"]
+            del road_one["geometry"]
             if self.usage == "match":
                 self.road_graph.add_node(link_id, **road_one)
             else:
-                self.road_graph.add_node(link_id, road_attr=tuple([value for value in road_one.values()]))
+                # ['from_node_id', 'to_node_id', 'name', 'length', 'lanes', 'free_speed', 'average_speed']
+                self.road_graph.add_node(link_id, road_attr=[value for value in road_one.values()])
 
         for graph_iter in graph_data:
             for edge in graph_iter:
                 if self.usage == "match":
                     self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[int(edge[2])])
                 else:
-                    self.road_graph.add_edge(edge[0], edge[1], intersec_attr=tuple([
-                        value for value in self.intersection_dict[edge[2]].values()]))
+                    self.road_graph.add_edge(edge[0], edge[1], intersec_attr=[
+                        value for value in self.intersection_dict[edge[2]].values()])
