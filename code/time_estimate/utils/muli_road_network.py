@@ -15,7 +15,7 @@ class MultiRoadNetwork(BaseRoadNetwork):
         super().__init__(usage)
 
     def time_group_data(self):
-        sql = "SELECT * FROM history_road_data"
+        sql = "SELECT * FROM history_road_data limit 0, 10000"
         query_data = self.db_manager.exec_sql(sql)
         road_data_dict = {}
         for one_data in query_data:
@@ -29,26 +29,31 @@ class MultiRoadNetwork(BaseRoadNetwork):
 
             for key in sorted(one_speed_data.keys()):
                 in_one_road[key] = one_speed_data[key]
-            road_data_dict[one_data[0]] = in_one_road
-
+            road_data_dict[int(one_data[0])] = in_one_road
         return road_data_dict
 
     def generate_multi_road_network(self):
         self.init_graph()
+        total_road_num = int(self.db_manager.exec_sql("SELECT COUNT(*) FROM history_road_data")[0][0])
         for i in range(self.max_length):
+
             one_network = copy.deepcopy(self.road_graph)
             effective_road_num = 0
             for road_id, one_road_data in self.group_road_data.items():
                 if one_road_data:
                     effective_road_num += 1
-                    timestamp = list(one_road_data.keys())[0]
-                    # one_network.nodes[int(road_id)]["road_attr"][-1] = one_road_data[timestamp]
-                    del one_road_data[timestamp]
+                    one_network.nodes[road_id]["road_attr"][-1] = one_road_data.popitem(last=False)
 
-            if effective_road_num / len(self.group_road_data) >= 0.8:
+            if effective_road_num / total_road_num >= 0.008:
                 self.multi_road_network.append(one_network)
 
-        print(len(self.multi_road_network))
+            print(len(self.group_road_data[11212]), self.group_road_data[11212])
+
+            if i == 5:
+                break
+
+        for i in self.multi_road_network:
+            print(i.nodes[11212])
 
 
 if __name__ == '__main__':
