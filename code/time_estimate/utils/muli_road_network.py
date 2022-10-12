@@ -4,18 +4,19 @@ from collections import OrderedDict
 
 from road_network import BaseRoadNetwork
 from db_manager import DBManager
+import networkx as nx
 
 
 class MultiRoadNetwork(BaseRoadNetwork):
     def __init__(self, usage):
         self.db_manager = DBManager()
-        self.multi_road_network = []
+        # self.multi_road_network = []
         self.max_length = 0
         self.group_road_data = self.time_group_data()
         super().__init__(usage)
 
     def time_group_data(self):
-        sql = "SELECT * FROM history_road_data limit 0, 10000"
+        sql = "SELECT * FROM history_road_data"
         query_data = self.db_manager.exec_sql(sql)
         road_data_dict = {}
         for one_data in query_data:
@@ -35,25 +36,23 @@ class MultiRoadNetwork(BaseRoadNetwork):
     def generate_multi_road_network(self):
         self.init_graph()
         total_road_num = int(self.db_manager.exec_sql("SELECT COUNT(*) FROM history_road_data")[0][0])
-        for i in range(self.max_length):
+        multi_flag = int(self.db_manager.exec_sql("SELECT multi_num FROM multi_flag")[0][0])
 
+        print(f"从{multi_flag}条记录开始生成行驶速度路网图...")
+
+        for i in range(multi_flag, self.max_length):
             one_network = copy.deepcopy(self.road_graph)
             effective_road_num = 0
             for road_id, one_road_data in self.group_road_data.items():
                 if one_road_data:
                     effective_road_num += 1
-                    one_network.nodes[road_id]["road_attr"][-1] = one_road_data.popitem(last=False)
+                    one_network.nodes[road_id]["average_speed"] = one_road_data.popitem(last=False)[1]
 
-            if effective_road_num / total_road_num >= 0.008:
-                self.multi_road_network.append(one_network)
+            if effective_road_num / total_road_num >= 0.8:
+                nx.write_graphml(one_network, f"data/multi_graph/road_graph_{i}.graphml")
+                print(f"已持久化路网图：data/multi_graph/road_graph_{i}.graphml")
 
-            print(len(self.group_road_data[11212]), self.group_road_data[11212])
-
-            if i == 5:
-                break
-
-        for i in self.multi_road_network:
-            print(i.nodes[11212])
+            self.db_manager.exec_sql("UPDATE multi_flag SET multi_num=multi_num+1 WHERE id=0")
 
 
 if __name__ == '__main__':

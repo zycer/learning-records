@@ -41,18 +41,26 @@ class BaseRoadNetwork:
 
         for road_one in self.roads_dict.values():
             link_id = int(road_one["link_id"])
+            road_one["average_speed"] = float(road_one["average_speed"])
             del road_one["link_id"]
             del road_one["geometry"]
+            del road_one["name"]
             if self.usage == "match":
                 self.road_graph.add_node(link_id, **road_one)
             else:
                 # ['from_node_id', 'to_node_id', 'name', 'length', 'lanes', 'free_speed', 'average_speed']
-                self.road_graph.add_node(link_id, road_attr=[value for value in road_one.values()])
+                # self.road_graph.add_node(link_id, road_attr=tuple([value for value in road_one.values()]))
+                self.road_graph.add_node(link_id, **road_one)
 
         for graph_iter in graph_data:
             for edge in graph_iter:
                 if self.usage == "match":
                     self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[int(edge[2])])
                 else:
-                    self.road_graph.add_edge(edge[0], edge[1], intersec_attr=[
-                        value for value in self.intersection_dict[edge[2]].values()])
+                    # self.road_graph.add_edge(edge[0], edge[1], intersec_attr=tuple([
+                    #     value for value in self.intersection_dict[edge[2]].values()]))
+                    if "name" in self.intersection_dict[int(edge[2])].keys():
+                        del self.intersection_dict[int(edge[2])]["name"]
+                    self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[int(edge[2])])
+
+
