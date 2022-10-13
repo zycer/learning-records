@@ -31,6 +31,7 @@ class MultiRoadNetwork(BaseRoadNetwork):
             for key in sorted(one_speed_data.keys()):
                 in_one_road[key] = one_speed_data[key]
             road_data_dict[int(one_data[0])] = in_one_road
+
         return road_data_dict
 
     def generate_multi_road_network(self):
@@ -48,9 +49,9 @@ class MultiRoadNetwork(BaseRoadNetwork):
                     effective_road_num += 1
                     one_network.nodes[road_id]["average_speed"] = one_road_data.popitem(last=False)[1]
 
-            if effective_road_num / total_road_num >= 0.8:
-                nx.write_graphml(one_network, f"data/multi_graph/road_graph_{i}.graphml")
-                print(f"已持久化路网图：data/multi_graph/road_graph_{i}.graphml")
+            percentage = round(effective_road_num / total_road_num, 2)
+            nx.write_graphml(one_network, f"data/multi_graph/road_graph_{i}_{percentage}.graphml")
+            print(f"已持久化路网图：data/multi_graph/road_graph_{i}_{percentage}.graphml")
 
             self.db_manager.exec_sql("UPDATE multi_flag SET multi_num=multi_num+1 WHERE id=0")
 
