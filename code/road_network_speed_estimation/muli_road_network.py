@@ -2,8 +2,8 @@ import copy
 import json
 from collections import OrderedDict
 
-from road_network import BaseRoadNetwork
-from db_manager import DBManager
+from map_matching.utils.road_network import BaseRoadNetwork
+from map_matching.utils.db_manager import DBManager
 import networkx as nx
 
 

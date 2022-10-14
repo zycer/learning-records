@@ -8,7 +8,7 @@ import random
 import redis
 
 import contrast_experiment
-from time_estimate.utils.constants import REDIS_INFO
+from map_matching.utils.constants import REDIS_INFO
 
 first_flag = True
 colors = []
