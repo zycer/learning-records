@@ -16,16 +16,16 @@ def z_score(raw_data):
 class RoadNetworkGraphData(InMemoryDataset):
     def __init__(self, root="data/run_data", transform=None, pre_transform=None):
         self.root = root
-        self.multi_graph_path = "data/multi_graphh"
-        self.data, self.slices = torch.load(self.processed_paths[0])
         super(RoadNetworkGraphData, self).__init__(root, transform, pre_transform)
+        self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
     def raw_file_names(self):
-        return []
+        return ["road_graph_0_1.0.graphml"]
 
+    @property
     def processed_file_names(self):
-        return []
+        return ["road_graph_0_1.0.graphml"]
 
     def download(self):
         pass
@@ -33,8 +33,8 @@ class RoadNetworkGraphData(InMemoryDataset):
     def process(self):
         data_list = []
 
-        for graph_name in os.listdir(self.multi_graph_path):
-            one_graph_path = os.path.join(self.multi_graph_path, graph_name)
+        for one_graph_path in self.raw_paths:
+            print(one_graph_path)
             road_network_graph = nx.read_graphml(one_graph_path)
             # todo 对特征编码，对编码后的数据进行z-score标准化
             node_features = []
@@ -47,8 +47,8 @@ class RoadNetworkGraphData(InMemoryDataset):
 
             node_features = torch.LongTensor(node_features).unsqueeze(1)
 
-            source_nodes = list(map(lambda x: x[0], road_network_graph.edges))
-            target_nodes = list(map(lambda x: x[1], road_network_graph.edges))
+            source_nodes = list(map(lambda x: int(x[0]), road_network_graph.edges))
+            target_nodes = list(map(lambda x: int(x[1]), road_network_graph.edges))
             edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.int)
             graph_data = Data(x=node_features, edge_index=edge_index)
 
