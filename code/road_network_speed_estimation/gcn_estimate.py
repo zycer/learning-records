@@ -6,16 +6,22 @@ import torch.nn
 
 from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GCNConv
+# from torch_geometric.nn import GCNConv
 from sklearn.preprocessing import StandardScaler
 
 
 def z_score(raw_data):
+    """
+    对原始特征进行z_score标准化
+    """
     standard_scaler = StandardScaler()
     return standard_scaler.fit_transform(raw_data)
 
 
 class RoadNetworkGraphData(InMemoryDataset):
+    """
+    自定义路网图结构
+    """
     def __init__(self, root="data/run_data", transform=None, pre_transform=None):
         self.root = root
         super(RoadNetworkGraphData, self).__init__(root, transform, pre_transform)
@@ -34,27 +40,34 @@ class RoadNetworkGraphData(InMemoryDataset):
         pass
 
     def process(self):
+        """
+        对原始路网图数据进行特征编码、标准化后转换为torch格式数据
+        """
         data_list = []
-        for index, one_graph_path in enumerate(self.raw_paths):
-            road_network_graph = nx.read_graphml(one_graph_path)
-            # todo 对特征编码，对编码后的数据进行z-score标准化
+        for one_graph_path in self.raw_paths:
+            # 有向图转无向图
+            road_network_graph = nx.read_graphml(one_graph_path).to_undirected()
             node_features = []
             for node in road_network_graph.nodes:
                 node_attr = road_network_graph.nodes[node]
                 del node_attr["from_node_id"]
                 del node_attr["to_node_id"]
-                node_attr = tuple(node_attr.values())
+                node_attr = list(node_attr.values())
                 node_features.append(node_attr)
 
-            node_features = torch.LongTensor(node_features).unsqueeze(1)
+            # 道路特征张量化
+            node_features_transformed = torch.FloatTensor(z_score(node_features))
 
             source_nodes = list(map(lambda x: int(x[0]), road_network_graph.edges))
             target_nodes = list(map(lambda x: int(x[1]), road_network_graph.edges))
             edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
-            graph_data = Data(x=node_features, edge_index=edge_index)
+
+            graph_data = Data(x=node_features_transformed, edge_index=edge_index)
 
             data_list.append(graph_data)
+            print(f"Processed {osp.basename(one_graph_path)}")
 
+        # 持久化处理后的数据
         graph_data, slices = self.collate(data_list)
         torch.save((graph_data, slices), self.processed_paths[0])
 
