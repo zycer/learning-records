@@ -1,9 +1,11 @@
+import os.path as osp
 import os
 
 import networkx as nx
 import torch.nn
 
 from torch_geometric.data import InMemoryDataset, Data
+from torch_geometric.loader import DataLoader
 from torch_geometric.nn import GCNConv
 from sklearn.preprocessing import StandardScaler
 
@@ -21,20 +23,19 @@ class RoadNetworkGraphData(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return ["road_graph_0_1.0.graphml"]
+        files = [file_path for file_path in os.listdir(self.raw_dir)]
+        return files
 
     @property
     def processed_file_names(self):
-        return ["road_graph_0_1.0.graphml"]
+        return ["multi_road_network_graph.pt"]
 
     def download(self):
         pass
 
     def process(self):
         data_list = []
-
-        for one_graph_path in self.raw_paths:
-            print(one_graph_path)
+        for index, one_graph_path in enumerate(self.raw_paths):
             road_network_graph = nx.read_graphml(one_graph_path)
             # todo 对特征编码，对编码后的数据进行z-score标准化
             node_features = []
@@ -49,7 +50,7 @@ class RoadNetworkGraphData(InMemoryDataset):
 
             source_nodes = list(map(lambda x: int(x[0]), road_network_graph.edges))
             target_nodes = list(map(lambda x: int(x[1]), road_network_graph.edges))
-            edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.int)
+            edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
             graph_data = Data(x=node_features, edge_index=edge_index)
 
             data_list.append(graph_data)
@@ -96,9 +97,13 @@ class RoadNetworkGraphData(InMemoryDataset):
 
 
 if __name__ == '__main__':
-    RoadNetworkGraphData()
     # model = GCN(hidden_channels=16)
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
     # criterion = torch.nn.CrossEntropyLoss()
     # data = []
+    road_graph_data = RoadNetworkGraphData()
+    data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
+
+    for data in data_loader:
+        print(data, type(data))
 
