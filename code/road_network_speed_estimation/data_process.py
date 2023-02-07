@@ -3,10 +3,13 @@ import os
 
 import networkx as nx
 import torch.nn
+import numpy as np
 
 from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.loader import DataLoader
 from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+from torch_geometric.utils import to_networkx
 
 
 def z_score(raw_data):
@@ -15,6 +18,14 @@ def z_score(raw_data):
     """
     standard_scaler = StandardScaler()
     return standard_scaler.fit_transform(raw_data)
+
+
+def visualize_graph(graph, color):
+    plt.figure(figsize=(7,7))
+    plt.xticks([])
+    plt.yticks([])
+    nx.draw_networkx(graph, pos=nx.spring_layout(graph, seed=42), with_labels=False, node_color=color, cmap="Set2")
+    plt.show()
 
 
 class RoadNetworkGraphData(InMemoryDataset):
@@ -58,7 +69,7 @@ class RoadNetworkGraphData(InMemoryDataset):
 
             # 道路特征张量化
             node_features_transformed = torch.FloatTensor(z_score(node_features))
-            labels_transformed = torch.FloatTensor(z_score(labels))
+            labels_transformed = torch.FloatTensor(z_score(np.array(labels).reshape(-1, 1)))
 
             source_nodes = list(map(lambda x: int(x[0]), road_network_graph.edges))
             target_nodes = list(map(lambda x: int(x[1]), road_network_graph.edges))
@@ -119,6 +130,6 @@ if __name__ == '__main__':
     road_graph_data = RoadNetworkGraphData()
     data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
 
-    for data in iter(data_loader):
-        print(data, data[0])
+    data = next(iter(data_loader))
+    visualize_graph(to_networkx(data, to_undirected=True), color=data.y)
 
