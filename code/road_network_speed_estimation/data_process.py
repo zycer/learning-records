@@ -6,7 +6,6 @@ import torch.nn
 
 from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.loader import DataLoader
-# from torch_geometric.nn import GCNConv
 from sklearn.preprocessing import StandardScaler
 
 
@@ -48,8 +47,10 @@ class RoadNetworkGraphData(InMemoryDataset):
             # 有向图转无向图
             road_network_graph = nx.read_graphml(one_graph_path).to_undirected()
             node_features = []
+            labels = []
             for node in road_network_graph.nodes:
                 node_attr = road_network_graph.nodes[node]
+                labels.append(node_attr.pop("average_speed"))
                 del node_attr["from_node_id"]
                 del node_attr["to_node_id"]
                 node_attr = list(node_attr.values())
@@ -57,12 +58,13 @@ class RoadNetworkGraphData(InMemoryDataset):
 
             # 道路特征张量化
             node_features_transformed = torch.FloatTensor(z_score(node_features))
+            labels_transformed = torch.FloatTensor(z_score(labels))
 
             source_nodes = list(map(lambda x: int(x[0]), road_network_graph.edges))
             target_nodes = list(map(lambda x: int(x[1]), road_network_graph.edges))
             edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
 
-            graph_data = Data(x=node_features_transformed, edge_index=edge_index)
+            graph_data = Data(x=node_features_transformed, edge_index=edge_index, y=labels_transformed)
 
             data_list.append(graph_data)
             print(f"Processed {osp.basename(one_graph_path)}")
@@ -117,6 +119,6 @@ if __name__ == '__main__':
     road_graph_data = RoadNetworkGraphData()
     data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
 
-    for data in data_loader:
-        print(data, type(data))
+    for data in iter(data_loader):
+        print(data, data[0])
 
