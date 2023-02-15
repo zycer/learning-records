@@ -9,7 +9,6 @@ from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.loader import DataLoader
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-from torch_geometric.utils import to_networkx
 
 
 def z_score(raw_data):
@@ -21,7 +20,7 @@ def z_score(raw_data):
 
 
 def visualize_graph(graph, color):
-    plt.figure(figsize=(7,7))
+    plt.figure(figsize=(7, 7))
     plt.xticks([])
     plt.yticks([])
     nx.draw_networkx(graph, pos=nx.spring_layout(graph, seed=42), with_labels=False, node_color=color, cmap="Set2")
@@ -32,6 +31,7 @@ class RoadNetworkGraphData(InMemoryDataset):
     """
     自定义路网图结构
     """
+
     def __init__(self, root="data/run_data", transform=None, pre_transform=None):
         self.root = root
         super(RoadNetworkGraphData, self).__init__(root, transform, pre_transform)
@@ -92,7 +92,6 @@ if __name__ == '__main__':
     # data = []
     road_graph_data = RoadNetworkGraphData()
     data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
-
     data = next(iter(data_loader))
+    print(data)
     # visualize_graph(to_networkx(data, to_undirected=True), color=data.y)
-

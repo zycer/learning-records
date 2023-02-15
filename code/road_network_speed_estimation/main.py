@@ -1,16 +1,21 @@
+import numpy as np
 import torch.nn
 import torch.nn.functional as F
+from torch.nn import Upsample
 from torch_geometric.graphgym import optim
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import GCNConv, TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 from data_process import RoadNetworkGraphData
+from matplotlib import pyplot as plt
 
 
 class GCN(torch.nn.Module):
     def __init__(self):
-        embed_dim = 3
         super().__init__()
+        scale_factor = 15
+        embed_dim = scale_factor * 3
+        self.up_sample = Upsample(scale_factor=scale_factor, mode="nearest")
         self.conv_1 = GCNConv(embed_dim, embed_dim)
         self.pool_1 = TopKPooling(embed_dim, ratio=0.8)
 
@@ -33,8 +38,11 @@ class GCN(torch.nn.Module):
         self.act_2 = torch.nn.ReLU()
 
     def forward(self, data):
+        data = data.to(device)
         x, edge_index, batch = data.x, data.edge_index, data.batch
-        print(x)
+
+        x = self.up_sample(torch.tensor(np.array([x.cpu().detach().numpy()])))[0]
+        x = x.to(device)
         # x = self.item_embedding(x.long())  # 特征编码
         # x = x.squeeze(1)
 
@@ -59,33 +67,49 @@ class GCN(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
 
         x = torch.sigmoid(self.lin_3(x).squeeze(1))
+        # x = x.squeeze(-1)
         return x
 
 
-def train(model, train_loader):
+def train(model, train_data):
     model.train()
     criterion = torch.nn.MSELoss()  # 均方损失函数
     optimizer = optim.Adam(params=model.parameters())
-    loss_all = 0
 
-    for data in train_loader:
-        optimizer.zero_grad()
-        output = model(data)
-        label = data.y
-        loss = criterion(output, label)
-        loss.backward()
-        loss_all += data.num_graphs * loss.item()
-        optimizer.step()
-
-    return loss_all
+    optimizer.zero_grad()
+    output = model(train_data)
+    label = train_data.y
+    _loss = criterion(output, label)
+    _loss.backward()
+    optimizer.step()
+    return _loss
 
 
 if __name__ == '__main__':
+    gpu_device = "cuda:0"
+    epoch_size = 12
+    device = torch.device(gpu_device if torch.cuda.is_available() else "cpu")
     gcn_model = GCN()
+    gcn_model = gcn_model.to(device)
     road_graph_data = RoadNetworkGraphData()
     data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
 
-    for epoch in range(10):
-        loss = train(gcn_model, iter(data_loader))
-        print(loss)
+    train_loss_record = []
+
+    for num, one_road_network_data in enumerate(iter(data_loader)):
+        loss = 0
+        print(f"根据{num+1}张路网数据训练参数...")
+        for epoch in range(epoch_size):
+            loss += train(gcn_model, one_road_network_data)
+
+        average_loss = loss.cpu().detach().numpy()
+        train_loss_record.append(average_loss)
+        print("loss:", average_loss)
+
+        plt.plot(train_loss_record, label="training loss")
+        plt.legend()
+        plt.show()
+
+
+
 
