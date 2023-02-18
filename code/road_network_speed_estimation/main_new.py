@@ -60,7 +60,7 @@ def train(model, train_data):
 
 if __name__ == '__main__':
     gpu_device = "cuda:0"
-    epoch_size = 12
+    epoch_size = 100
     device = torch.device(gpu_device if torch.cuda.is_available() else "cpu")
     gcn_model = GCN()
     gcn_model = gcn_model.to(device)
@@ -71,17 +71,17 @@ if __name__ == '__main__':
 
     for num, one_road_network_data in enumerate(iter(data_loader)):
         loss = 0
-        print(f"根据{num+1}张路网数据训练参数...")
+        print(f"根据第{num+1}张路网数据训练参数...")
         for epoch in range(epoch_size):
             loss += train(gcn_model, one_road_network_data)
 
-        average_loss = loss.cpu().detach().numpy()
+        average_loss = loss.cpu().detach().numpy() / epoch_size
         train_loss_record.append(average_loss)
         print("loss:", average_loss)
 
-        plt.plot(train_loss_record, label="training loss")
-        plt.legend()
-        plt.show()
+    plt.plot(train_loss_record, label="training loss")
+    plt.legend()
+    plt.show()
 
 
 
