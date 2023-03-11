@@ -64,7 +64,7 @@ if __name__ == '__main__':
     device = torch.device(gpu_device if torch.cuda.is_available() else "cpu")
     gcn_model = GCN()
     gcn_model = gcn_model.to(device)
-    road_graph_data = RoadNetworkGraphData()
+    road_graph_data = RoadNetworkGraphData(root="data/train_data")
     data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
 
     train_loss_record = []

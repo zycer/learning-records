@@ -16,7 +16,7 @@ class RoadNetworkGraphData(InMemoryDataset):
     自定义路网图结构
     """
 
-    def __init__(self, root="data/run_data", transform=None, pre_transform=None):
+    def __init__(self, root, transform=None, pre_transform=None):
         self.root = root
         super(RoadNetworkGraphData, self).__init__(root, transform, pre_transform)
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
     # criterion = torch.nn.CrossEntropyLoss()
     # data = []
-    road_graph_data = RoadNetworkGraphData()
+    road_graph_data = RoadNetworkGraphData(root="data/train_data")
     data_loader = DataLoader(road_graph_data, batch_size=1, shuffle=False)
     data = next(iter(data_loader))
     print(data)
