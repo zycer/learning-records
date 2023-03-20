@@ -1,0 +1,11 @@
+def get_scale_factor():
+    if platform.system() == 'Windows':
+        # 使用 ctypes 库获取缩放因子
+        import ctypes
+        awareness = ctypes.windll.shcore.GetProcessDpiAwareness(0)
+        if awareness == 0:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        return ctypes.windll.shcore.GetScaleFactorForDevice(0)
+    else:
+        # 在 macOS 和 Linux 上，缩放因子通常为 1.0
+        return 1.0
