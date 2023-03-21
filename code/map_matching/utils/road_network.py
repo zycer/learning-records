@@ -36,7 +36,7 @@ class BaseRoadNetwork:
         for intersec_iter in intersection_data:
             for intersec_one_info in intersec_iter:
                 intersec_attr_dict = dict(zip(INTERSEC_ATTR, intersec_one_info))
-                self.intersection_dict[intersec_attr_dict["node_id"]] = intersec_attr_dict
+                self.intersection_dict[intersec_attr_dict["intersection_id"]] = intersec_attr_dict
                 # traffic_graph.add_node(intersec_attr_dict["node_id"], **intersec_attr_dict)
 
         for road_one in self.roads_dict.values():

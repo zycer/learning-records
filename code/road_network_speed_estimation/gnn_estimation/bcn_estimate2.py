@@ -114,6 +114,7 @@ if __name__ == '__main__':
 
     for epoch in tqdm.tqdm(range(epochs)):
         total_loss = 0
+        nodes_num = 0
         for data in iter(train_loader):
             print("#", end="")
             data = data.to(device)
@@ -124,5 +125,6 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
+            nodes_num = data.x.shape[0]
 
-        print("\nEpoch:", epoch + 1, "Loss:", total_loss / len(train_loader.dataset))
+        print("\nEpoch:", epoch + 1, "Loss:", total_loss / (len(train_loader.dataset)*nodes_num))

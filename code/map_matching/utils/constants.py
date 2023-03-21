@@ -28,7 +28,7 @@ ROAD_DATA_PATH = "data/road_network/other/road_data"
 INTERSEC_DATA_PATH = "data/road_network/other/vertex_data"
 GRAPH_DATA = "data/graph_data"
 ROAD_ATTR = ["link_id", "from_node_id", "to_node_id", "name", "length", "lanes", "free_speed", "average_speed", "geometry"]
-INTERSEC_ATTR = ["node_id", "name", "x_coord", "y_coord"]
+INTERSEC_ATTR = ["intersection_id", "name", "x_coord", "y_coord"]
 
 REDIS_INFO = {
             "host": "127.0.0.1",
