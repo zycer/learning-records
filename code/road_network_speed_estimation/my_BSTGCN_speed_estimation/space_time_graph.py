@@ -4,6 +4,8 @@ import json
 import sys
 import math
 import random
+import time
+
 import tqdm
 from collections import OrderedDict
 from datetime import datetime
@@ -84,22 +86,20 @@ class MultiRoadNetwork(BaseRoadNetwork):
                     time_road_data[timestamp][_road_id] = self.road_graph.nodes[_road_id][
                                                               "free_speed"] + random.uniform(-5, 5)
 
+        # 只留长度、车道数、限速
+        for road_id in self.road_graph.nodes:
+            del self.road_graph.nodes[road_id]["from_node_id"]
+            del self.road_graph.nodes[road_id]["to_node_id"]
+            del self.road_graph.nodes[road_id]["average_speed"]
+
+        data_path = "../road_network_speed_estimation/my_BSTGCN_speed_estimation/data"
+
         for index, _data in tqdm.tqdm(enumerate(time_road_data.items()), total=len(time_road_data)):
             timestamp, values = _data
-            one_st_graph = copy.deepcopy(self.road_graph)
-            one_st_graph.graph["timestamp"] = timestamp
-            # 只留长度、车道数、限速
-            for road_id in self.road_graph.nodes:
-                del one_st_graph.nodes[road_id]["from_node_id"]
-                del one_st_graph.nodes[road_id]["to_node_id"]
-                del one_st_graph.nodes[road_id]["average_speed"]
-
+            self.road_graph.graph["timestamp"] = timestamp
             for road_id, speed in values.items():
-                one_st_graph.nodes[road_id]["time_data_speed"] = speed
-
-            data_path = "../road_network_speed_estimation/my_BSTGCN_speed_estimation/data"
-            nx.write_graphml(one_st_graph, f"{data_path}/st_road_graph_{index}.graphml")
-
+                self.road_graph.nodes[road_id]["time_data_speed"] = speed
+            nx.write_graphml(self.road_graph, f"{data_path}/st_road_graph_{index}.graphml")
 
 if __name__ == '__main__':
     multi_network = MultiRoadNetwork("gcn")
