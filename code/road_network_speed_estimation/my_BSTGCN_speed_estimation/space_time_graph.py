@@ -3,6 +3,7 @@ import json
 import sys
 import math
 import random
+import tqdm
 from collections import OrderedDict
 from datetime import datetime
 
@@ -15,15 +16,16 @@ class MultiRoadNetwork(BaseRoadNetwork):
     def __init__(self, usage):
         self.db_manager = DBManager()
         self.min_timestamp = sys.maxsize
-        self.time_step = 1800
+        self.time_step = 408800
         self.all_road_data = self.get_all_road_data()
         super().__init__(usage)
 
     def get_all_road_data(self):
+        print("get_all_road_data.....")
         sql = "SELECT * FROM history_road_data"
         query_data = self.db_manager.exec_sql(sql)
         road_data_dict = {}
-        for one_data in query_data:
+        for one_data in tqdm.tqdm(query_data):
             in_one_road = OrderedDict()
             one_speed_data = {}
             for _dict in one_data[1].split(";"):
@@ -38,9 +40,11 @@ class MultiRoadNetwork(BaseRoadNetwork):
         return road_data_dict
 
     def generate_st_road_graph(self):
+        print("generate_st_road_graph...")
         self.init_graph()
         time_road_data = OrderedDict()
-        for road_id, one_values in self.all_road_data.items():
+        print("generate timestamp graph...")
+        for road_id, one_values in tqdm.tqdm(self.all_road_data.items()):
             for timestamp, speed in one_values.items():
                 time_step_num = math.ceil((timestamp - self.min_timestamp) / self.time_step)
                 time_window = self.min_timestamp + time_step_num * self.time_step
@@ -50,12 +54,13 @@ class MultiRoadNetwork(BaseRoadNetwork):
                     time_road_data[time_window][road_id] = []
                 time_road_data[time_window][road_id].append(speed)
 
-        for timestamp, values in time_road_data.items():
+        print("补全数据。。。")
+        for timestamp, values in tqdm.tqdm(time_road_data.items()):
             for road_id, speeds in values.items():
                 average_speed = sum(speeds) / len(speeds)
                 time_road_data[timestamp][road_id] = average_speed
 
-            no_data_road_ids = [road_id for road_id in list(self.road_graph.nodes) if road_id not in list(values.keys())]
+            no_data_road_ids = list(set(self.road_graph.nodes).difference(set(values.keys())))
             for _road_id in no_data_road_ids:
                 if _road_id in self.all_road_data.keys():
                     if self.all_road_data[_road_id]:
@@ -72,34 +77,32 @@ class MultiRoadNetwork(BaseRoadNetwork):
                         if not flag:
                             sum(self.all_road_data[_road_id].values()) / len(self.all_road_data[_road_id].values())
                     else:
-                        time_road_data[timestamp][_road_id] = self.road_graph.nodes[_road_id]["free_speed"] + random.uniform(-5, 5)
+                        time_road_data[timestamp][_road_id] = self.road_graph.nodes[_road_id][
+                                                                  "free_speed"] + random.uniform(-5, 5)
                 else:
-                    time_road_data[timestamp][_road_id] = self.road_graph.nodes[_road_id]["free_speed"] + random.uniform(-5,
-                                                                                                                   5)
-        for timestamp, values in time_road_data.items():
-            print(timestamp, list(values.keys()))
+                    time_road_data[timestamp][_road_id] = self.road_graph.nodes[_road_id][
+                                                              "free_speed"] + random.uniform(-5, 5)
 
+        # 只留长度、车道数、限速
+        for road_id in self.road_graph.nodes:
+            del self.road_graph.nodes[road_id]["from_node_id"]
+            del self.road_graph.nodes[road_id]["to_node_id"]
+            del self.road_graph.nodes[road_id]["average_speed"]
+            self.road_graph.nodes[road_id]["time_data_speed"] = []
 
-        time_road_network = copy.deepcopy(self.road_graph)
+        # 写入图...
+        print("写入图...")
+        for timestamp, values in tqdm.tqdm(time_road_data.items()):
+            for road_id, speed in values.items():
+                self.road_graph.nodes[road_id]["time_data_speed"].append((timestamp, speed))
 
+        for road_id in self.road_graph.nodes:
+            time_data_json = json.dumps(self.road_graph.nodes[road_id]["time_data_speed"])
+            self.road_graph.nodes[road_id]["time_data_speed"] = time_data_json
 
-
-        for i in range(multi_flag, self.max_length):
-            one_network = copy.deepcopy(self.road_graph)
-            effective_road_num = 0
-            for road_id, one_road_data in self.group_road_data.items():
-                if one_road_data:
-                    effective_road_num += 1
-                    one_network.nodes[road_id]["average_speed"] = one_road_data.popitem(last=False)[1]
-
-            percentage = round(effective_road_num / total_road_num, 2)
-            nx.write_graphml(one_network, f"../source_multi_graph_data/road_graph_{i}_{percentage}.graphml")
-            print(f"已持久化路网图：data/multi_graph/road_graph_{i}_{percentage}.graphml")
-
-            self.db_manager.exec_sql("UPDATE multi_flag SET multi_num=multi_num+1 WHERE id=0")
+        nx.write_graphml(self.road_graph, f"data/st_road_graph.graphml")
 
 
 if __name__ == '__main__':
     multi_network = MultiRoadNetwork("gcn")
-
     multi_network.generate_st_road_graph()
