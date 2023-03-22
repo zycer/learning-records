@@ -1,4 +1,4 @@
-import multiprocessing as mp
+import threading
 import copy
 import networkx as nx
 from tqdm import tqdm
@@ -20,7 +20,11 @@ def persist_graph(data):
 time_road_data = {...}
 road_graph = {...}
 
-with mp.Pool() as pool:
-    data_list = [(index, _data, copy.deepcopy(road_graph)) for index, _data in enumerate(time_road_data.items())]
-    for _ in tqdm(pool.imap(persist_graph, data_list), total=len(data_list)):
-        pass
+threads = []
+for index, _data in enumerate(tqdm(time_road_data.items())):
+    one_st_graph = copy.deepcopy(road_graph)
+    t = threading.Thread(target=persist_graph, args=((index, _data, one_st_graph),))
+    threads.append(t)
+    t.start()
+for t in tqdm(threads):
+    t.join()
