@@ -1,4 +1,4 @@
-import concurrent.futures
+import multiprocessing as mp
 import copy
 import networkx as nx
 from tqdm import tqdm
@@ -20,10 +20,7 @@ def persist_graph(data):
 time_road_data = {...}
 road_graph = {...}
 
-with concurrent.futures.ThreadPoolExecutor() as executor:
-    futures = []
-    for index, _data in enumerate(tqdm(time_road_data.items())):
-        one_st_graph = copy.deepcopy(road_graph)
-        futures.append(executor.submit(persist_graph, (index, _data, one_st_graph)))
-    for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-        _ = future.result()
+with mp.Pool() as pool:
+    data_list = [(index, _data, copy.deepcopy(road_graph)) for index, _data in enumerate(time_road_data.items())]
+    for _ in tqdm(pool.imap(persist_graph, data_list), total=len(data_list)):
+        pass
