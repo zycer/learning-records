@@ -28,7 +28,7 @@ class MultiRoadNetwork(BaseRoadNetwork):
 
     def get_all_road_data(self):
         print("get_all_road_data.....")
-        sql = "SELECT * FROM history_road_data"
+        sql = "SELECT * FROM history_road_data limit 0, 500"
         query_data = self.db_manager.exec_sql(sql)
         road_data_dict = {}
         for one_data in tqdm.tqdm(query_data):

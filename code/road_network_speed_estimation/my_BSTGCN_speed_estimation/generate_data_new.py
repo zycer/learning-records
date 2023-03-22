@@ -19,7 +19,7 @@ class MultiRoadNetwork(BaseRoadNetwork):
     def __init__(self, usage):
         self.db_manager = DBManager()
         self.min_timestamp = sys.maxsize
-        self.time_step = 1808800
+        self.time_step = 1800
         self.all_road_data = self.get_all_road_data()
         super().__init__(usage)
 
@@ -43,9 +43,8 @@ class MultiRoadNetwork(BaseRoadNetwork):
         return road_data_dict
 
     def generate_st_road_graph(self):
-        print("generate_st_road_graph...")
+        print("\ngenerate_st_road_graph...")
         time_road_data = OrderedDict()
-        print("generate timestamp graph...")
         for road_id, one_values in tqdm.tqdm(self.all_road_data.items()):
             for timestamp, speed in one_values.items():
                 time_step_num = math.ceil((timestamp - self.min_timestamp) / self.time_step)
@@ -60,19 +59,25 @@ class MultiRoadNetwork(BaseRoadNetwork):
 
 
 def save_graph_data(_data):
-    __index, __data = _data
+    __index, __timestamp_list, __data = _data
+    dump_data = {}
+    for temp_data in zip(__timestamp_list, __data):
+        dump_data[temp_data[0]] = temp_data[1]
     with open(f"{data_path}/{__index}.pickle", "wb") as f:
-        pickle.dump(__data, f)
+        pickle.dump(dump_data, f)
 
 
 if __name__ == '__main__':
     threads = []
     multi_network = MultiRoadNetwork("gcn")
+    multi_network.init_graph()
     time_road_data = multi_network.generate_st_road_graph()
-    data_path = "data"
+    data_path = "../road_network_speed_estimation/my_BSTGCN_speed_estimation/data"
 
-    print("补全数据。。。")
-    for index, __values in tqdm.tqdm(enumerate(time_road_data.items())):
+    print("\nComplete data...")
+    timestamp_list = []
+    num = 0
+    for index, __values in tqdm.tqdm(enumerate(time_road_data.items()), total=len(time_road_data)):
         timestamp, values = __values
         for road_id, speeds in values.items():
             average_speed = sum(speeds) / len(speeds)
@@ -93,17 +98,29 @@ if __name__ == '__main__':
                             flag = True
                             break
                     if not flag:
-                        sum(multi_network.all_road_data[_road_id].values()) / len(multi_network.all_road_data[_road_id].values())
+                        sum(multi_network.all_road_data[_road_id].values()) / len(
+                            multi_network.all_road_data[_road_id].values())
                 else:
                     time_road_data[timestamp][_road_id] = multi_network.road_graph.nodes[_road_id][
                                                               "free_speed"] + random.uniform(-5, 5)
             else:
                 time_road_data[timestamp][_road_id] = multi_network.road_graph.nodes[_road_id][
                                                           "free_speed"] + random.uniform(-5, 5)
+        timestamp_list.append(timestamp)
+        if len(timestamp_list) == 100:
+            t = threading.Thread(target=save_graph_data,
+                                 args=((num, timestamp_list, [time_road_data[temp] for temp in timestamp_list]),))
+            threads.append(t)
+            t.start()
+            timestamp_list.clear()
+            num += 1
 
-        t = threading.Thread(target=save_graph_data, args=((index, time_road_data[timestamp]),))
+    if timestamp_list:
+        t = threading.Thread(target=save_graph_data,
+                             args=((num, timestamp_list, [time_road_data[temp] for temp in timestamp_list]),))
         threads.append(t)
         t.start()
 
+    print("\nWait for the child process to end...")
     for t in tqdm.tqdm(threads):
         t.join()
