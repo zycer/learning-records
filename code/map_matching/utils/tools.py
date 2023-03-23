@@ -31,15 +31,15 @@ def get_road_data(road_path):
     free_speed = [RMS.get(road_data["link_type_name"][i], RMS["other"]) if np.isnan(f_speed) else f_speed for i, f_speed
                   in enumerate(road_data["free_speed"].values)]
 
-    print("road_ids: ", len(road_ids))
-    print("from_vertexes: ", len(from_vertexes))
-    print("to_vertexes: ", len(to_vertexes))
-    print("road_names: ", len(road_names))
-    print("mileages: ", len(mileages))
-    print("lanes: ", len(lanes))
-    print("free_speed: ", len(free_speed))
-    print("average_speed: ", len(average_speed))
-    print("geometries: ", len(geometries))
+    # print("road_ids: ", len(road_ids))
+    # print("from_vertexes: ", len(from_vertexes))
+    # print("to_vertexes: ", len(to_vertexes))
+    # print("road_names: ", len(road_names))
+    # print("mileages: ", len(mileages))
+    # print("lanes: ", len(lanes))
+    # print("free_speed: ", len(free_speed))
+    # print("average_speed: ", len(average_speed))
+    # print("geometries: ", len(geometries))
     return zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, lanes, free_speed, average_speed, geometries)
 
 

@@ -1,4 +1,3 @@
-import copy
 import pickle
 import json
 import sys
@@ -12,7 +11,6 @@ from datetime import datetime
 
 from map_matching.utils.road_network import BaseRoadNetwork
 from map_matching.utils.db_manager import DBManager
-import networkx as nx
 
 
 class MultiRoadNetwork(BaseRoadNetwork):
@@ -104,6 +102,9 @@ if __name__ == '__main__':
                     time_road_data[timestamp][_road_id] = multi_network.road_graph.nodes[_road_id][
                                                               "free_speed"] + random.uniform(-5, 5)
             else:
+                time_road_data[timestamp][_road_id] = multi_network.road_graph.nodes[_road_id][
+                                                          "free_speed"] + random.uniform(-5, 5)
+            if time_road_data[timestamp][_road_id] < 10:
                 time_road_data[timestamp][_road_id] = multi_network.road_graph.nodes[_road_id][
                                                           "free_speed"] + random.uniform(-5, 5)
         timestamp_list.append(timestamp)

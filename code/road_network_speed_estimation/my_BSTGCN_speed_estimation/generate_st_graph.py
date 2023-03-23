@@ -1,10 +1,7 @@
 import os
 import pickle
-
-import numpy as np
 import torch
 from torch_geometric.data import Data
-
 from map_matching.utils.road_network import BaseRoadNetwork
 
 
@@ -23,11 +20,12 @@ class STRoadGraph:
             graph_attrs.append(_timestamp)  # [timestamp1, timestamp2,...]
             road_attr = []  # [(限速,车道数,长度),...]
             edge_attr = []  # [两个道路之间的行驶时间,...]
-            target = [] # [road_travel_time,...]
-            free_speed_roads = [graph_obj.road_graph.nodes[_road_id]["free_speed"] for _road_id in graph_obj.road_graph.nodes]
+            free_speed_roads = [graph_obj.road_graph.nodes[_road_id]["free_speed"] for _road_id in
+                                graph_obj.road_graph.nodes]
             lanes_roads = [graph_obj.road_graph.nodes[_road_id]["lanes"] for _road_id in graph_obj.road_graph.nodes]
             length_roads = [graph_obj.road_graph.nodes[_road_id]["length"] for _road_id in graph_obj.road_graph.nodes]
-            target = [graph_obj.road_graph.nodes[_road_id]["length"] / _graph_data[_road_id] for _road_id in graph_obj.road_graph.nodes]
+            target = [graph_obj.road_graph.nodes[_road_id]["length"] / _graph_data[_road_id] for _road_id in
+                      graph_obj.road_graph.nodes]   # [road_travel_time,...]
             for one_road_attr in zip(free_speed_roads, lanes_roads, length_roads):
                 road_attr.append(one_road_attr)
 
@@ -45,9 +43,12 @@ class STRoadGraph:
         target_nodes = list(map(lambda x: int(x[1]), graph_obj.road_graph.edges))
 
         self.edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
-        self.edge_attrs = torch.tensor(edge_attrs, dtype=torch.float64)
-        self.road_attrs = torch.tensor(road_attrs, dtype=torch.float64)
-        self.targets = torch.tensor(targets, dtype=torch.float64)
+        # self.edge_attrs = torch.tensor(edge_attrs, dtype=torch.double)
+        # self.road_attrs = torch.tensor(road_attrs, dtype=torch.double)
+        # self.targets = torch.tensor(targets, dtype=torch.double)
+        self.edge_attrs = torch.DoubleTensor(edge_attrs)
+        self.road_attrs = torch.DoubleTensor(road_attrs)
+        self.targets = torch.DoubleTensor(targets)
         self.graph_attrs = torch.tensor(graph_attrs, dtype=torch.long)
 
     def __getitem__(self, index):
@@ -61,15 +62,7 @@ class STRoadGraph:
         return len(self.graph_attrs)
 
 
-def get_st_road_graph(_index):
-    with open(os.path.join(data_path, st_graph_files[_index]), "rb") as f:
+def get_st_road_graph(data_path):
+    with open(data_path, "rb") as f:
         st_graph_data = pickle.load(f)
     return STRoadGraph(st_graph_data)
-
-
-if __name__ == '__main__':
-    data_path = "data"
-    st_graph_files = os.listdir(data_path)
-
-    patch_1 = get_st_road_graph(0)
-    print(patch_1[0])
