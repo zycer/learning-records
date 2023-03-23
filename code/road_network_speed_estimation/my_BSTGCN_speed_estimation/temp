@@ -1,5 +1,5 @@
 import torch
-from torch_geometric_temporal.data import StaticGraphTemporalSignal
+from torch_geometric_temporal import StaticGraphTemporalSignal
 
 # 随机生成边索引
 edges = torch.randint(0, 5, (2, 6), dtype=torch.long)
@@ -19,12 +19,7 @@ edge_weight_list = [torch.randn(edge_index.size(1)) for _ in range(num_snapshots
 # 随机生成4个时间戳下的目标列表
 targets_list = [torch.randint(0, 2, (num_nodes,)) for _ in range(num_snapshots)]
 
-# 使用StaticGraphTemporalSignal构建时空图
+# 使用torch_geometric_temporal.StaticGraphTemporalSignal构建时空图
 static_graph = StaticGraphTemporalSignal(edge_index, edge_weight_list, features_list, targets_list)
 
-# 输出时空图的相关信息
-print("Edge index:")
-print(static_graph.edge_index)
-print("\nNode features:")
-for i, features in enumerate(static_graph.features_list):
-    print
+#
