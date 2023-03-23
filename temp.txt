@@ -1,16 +1,13 @@
-import tkinter as tk
+import re
 
-# 创建主窗口
-root = tk.Tk()
-root.geometry('430x200')
+# 定义待匹配的字符串
+string = 'width=123'
 
-# 创建按钮
-button = tk.Button(root, text="Button", width=34, height=2)
+# 定义正则表达式模式，用于匹配字符串中的数字
+pattern = r'width=(\d+)'
 
-# 将按钮居中
-button.grid(row=0, column=0, padx=(root.winfo_width()-button.winfo_reqwidth())//2, pady=(root.winfo_height()-button.winfo_reqheight())//2)
-root.grid_rowconfigure(0, weight=1)
-root.grid_columnconfigure(0, weight=1)
+# 使用 sub() 方法进行替换
+new_string = re.sub(pattern, r'width=(\1)', string)
 
-# 进入事件循环
-root.mainloop()
+# 打印替换后的字符串
+print(new_string)
