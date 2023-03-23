@@ -13,35 +13,18 @@ num_nodes = 5
 num_features = 3  # 自定义特征数量
 features_list = [torch.randn(num_nodes, num_features) for _ in range(num_snapshots)]
 
+# 随机生成4个时间戳下的边权重
+edge_weight_list = [torch.randn(edge_index.size(1)) for _ in range(num_snapshots)]
+
+# 随机生成4个时间戳下的目标列表
+targets_list = [torch.randint(0, 2, (num_nodes,)) for _ in range(num_snapshots)]
+
 # 使用StaticGraphTemporalSignal构建时空图
-static_graph = StaticGraphTemporalSignal(edge_index, features_list)
+static_graph = StaticGraphTemporalSignal(edge_index, edge_weight_list, features_list, targets_list)
 
 # 输出时空图的相关信息
 print("Edge index:")
 print(static_graph.edge_index)
 print("\nNode features:")
 for i, features in enumerate(static_graph.features_list):
-    print(f"Snapshot {i + 1}:")
-    print(features)
-
-class CustomStaticGraphTemporalSignal(StaticGraphTemporalSignal):
-    def __init__(self, edge_index, features_list):
-        super(CustomStaticGraphTemporalSignal, self).__init__(edge_index, features_list)
-
-    def compute_average_features_per_snapshot(self):
-        average_features_list = []
-
-        for features in self.features_list:
-            average_features = torch.mean(features, dim=0)
-            average_features_list.append(average_features)
-
-        return average_features_list
-
-custom_static_graph = CustomStaticGraphTemporalSignal(edge_index, features_list)
-
-average_features_list = custom_static_graph.compute_average_features_per_snapshot()
-
-print("\nAverage node features per snapshot:")
-for i, average_features in enumerate(average_features_list):
-    print(f"Snapshot {i + 1}:")
-    print(average_features)
+    print
