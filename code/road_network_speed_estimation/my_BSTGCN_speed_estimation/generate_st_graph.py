@@ -2,7 +2,11 @@ import os
 import pickle
 import torch
 from torch_geometric.data import Data
+from torch_geometric.data import InMemoryDataset
+from torch_geometric.loader import DataLoader
+
 from map_matching.utils.road_network import BaseRoadNetwork
+from road_network_speed_estimation.utils import min_max_scaler, z_score
 
 
 class STRoadGraph:
@@ -36,12 +40,10 @@ class STRoadGraph:
             edge_attrs.append(edge_attr)
             targets.append(target)
 
-        # 道路特征张量化
-        # road_attrs_transformed = torch.FloatTensor(z_score(road_attrs))
-        # edge_attr_transformed = torch.FloatTensor(z_score(edge_attrs))
         source_nodes = list(map(lambda x: int(x[0]), graph_obj.road_graph.edges))
         target_nodes = list(map(lambda x: int(x[1]), graph_obj.road_graph.edges))
 
+        # 特征transformed并张量化
         self.edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
         # self.edge_attrs = torch.tensor(edge_attrs, dtype=torch.double)
         # self.road_attrs = torch.tensor(road_attrs, dtype=torch.double)
@@ -56,13 +58,36 @@ class STRoadGraph:
         y = self.targets[index]
         edge_index = self.edge_index
         edge_attr = self.edge_attrs[index]
-        return Data(x=x, y=y, edge_index=edge_index, edge_attr=edge_attr, graph_attr=self.graph_attrs[index])
+        return Data(x=min_max_scaler(x), y=z_score(y.reshape(1, -1)), edge_index=edge_index,
+                    edge_attr=z_score(edge_attr.reshape(1, -1)), graph_attr=self.graph_attrs[index])
 
     def __len__(self):
         return len(self.graph_attrs)
+
+
+class STGraphDataset(InMemoryDataset):
+    def __init__(self, data_list):
+        super(STGraphDataset, self).__init__()
+        self.data_list = data_list
+
+    def _process(self):
+        pass
+
+    def len(self):
+        return len(self.data_list)
+
+    def get(self, idx):
+        return self.data_list[idx]
 
 
 def get_st_road_graph(data_path):
     with open(data_path, "rb") as f:
         st_graph_data = pickle.load(f)
     return STRoadGraph(st_graph_data)
+
+
+def get_st_graph_loader(data_path):
+    with open(data_path, "rb") as f:
+        st_graph_data = pickle.load(f)
+        st_graph_dataset = STGraphDataset(STRoadGraph(st_graph_data))
+    return DataLoader(st_graph_dataset, batch_size=1, shuffle=True)

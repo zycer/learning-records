@@ -16,9 +16,9 @@ class BaseRoadNetwork:
             self.init_graph()
 
     def init_graph(self):
-        cur_path = os.path.abspath(os.path.dirname(__file__))
-        work_path = cur_path + "\\.." if "utils" in cur_path else cur_path
-        os.chdir(work_path)
+        # cur_path = os.path.abspath(os.path.dirname(__file__))
+        # work_path = cur_path + "\\.." if "utils" in cur_path else cur_path
+        # os.chdir(work_path)
         road_data = [get_road_data(road_file) for road_file in
                      Path(ROAD_DATA_PATH).iterdir()]  # save road data iterator
         intersection_data = [get_intersection_data(intersection_file) for intersection_file in

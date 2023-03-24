@@ -1,5 +1,5 @@
 import torch
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import matplotlib.pyplot as plt
 import networkx as nx
 from torch import nn
@@ -87,7 +87,6 @@ class BayesianGCNVAE(nn.Module):
     def loss(self, recon_x, x, mu, logvar):
         BCE = self.reconstruction_loss(recon_x, x)
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        print(BCE, KLD)
         return BCE + KLD
 
 
@@ -96,7 +95,13 @@ def z_score(raw_data):
     对原始特征进行z_score标准化
     """
     standard_scaler = StandardScaler()
-    return standard_scaler.fit_transform(raw_data)
+    return torch.tensor(standard_scaler.fit_transform(raw_data), dtype=torch.double)
+
+
+def min_max_scaler(data):
+    scaler = MinMaxScaler()
+    # 使用 MinMaxScaler 对数据进行缩放
+    return torch.tensor(scaler.fit_transform(data), dtype=torch.double)
 
 
 def one_graph_node_features_labels(road_network_graph):
