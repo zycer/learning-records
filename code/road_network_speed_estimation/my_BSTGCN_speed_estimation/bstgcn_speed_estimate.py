@@ -1,8 +1,11 @@
 import os
+import time
 
 import torch
 import torch.nn as nn
+import tqdm
 from sklearn.metrics import mean_squared_error
+from torch.nn.utils import clip_grad_norm_
 from torch_geometric.nn.conv import FeaStConv
 from torch.optim import Adam, RMSprop
 from torch.utils.tensorboard import SummaryWriter
@@ -37,14 +40,18 @@ class STGCNBayesianGCNVAE(nn.Module):
 
 
 def train():
+    if os.path.exists(model_save_path):
+        model.load_state_dict(torch.load(model_save_path))
+        print("Loading model successfully.")
     writer = SummaryWriter("runs/TTDE train loss")
+    model.train()
+    print("Start model training.")
     for num, train_data_file in enumerate(train_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file))
         for epoch in range(num_epochs):
-            model.train()
             optimizer.zero_grad()
             epoch_loss_values = []
-            for batch in snapshot_graphs_loader:
+            for batch in tqdm.tqdm(snapshot_graphs_loader):
                 snapshot_batch = batch.to(device)
                 # 训练模型
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
@@ -52,14 +59,18 @@ def train():
                 loss = model.bayesian_gcn_vae.loss(reconstructed_x, x.double(), mu, logvar)
                 epoch_loss_values.append(loss.item())
                 loss.backward()
-                print("#", end="")
-            optimizer.step()
+                # 梯度裁剪
+                clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+
             epoch_loss = sum(epoch_loss_values) / len(epoch_loss_values)
             writer.add_scalar("Loss/train", epoch_loss, epoch + num * num_epochs)
-            print(f"\ndata file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}")
+            print(f"\tdata file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}\n")
+            time.sleep(0.01)
+
+        torch.save(model.state_dict(), model_save_path)
 
     writer.close()
-    torch.save(model.state_dict(), model_save_path)
 
 
 def predict():
@@ -87,14 +98,14 @@ if __name__ == '__main__':
     latent_size = 16
     out_size = 3
     num_epochs = 10
-    learning_rate = 0.01
+    learning_rate = 0.001
     model_save_path = "saved_models/ttde_model.pth"
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
     # 创建模型、优化器
     model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
-    optimizer = RMSprop(model.parameters(), lr=learning_rate)
-    # optimizer = Adam(model.parameters(), lr=learning_rate)
+    # optimizer = RMSprop(model.parameters(), lr=learning_rate)
+    optimizer = Adam(model.parameters(), lr=learning_rate)
 
     # 分配数据
     data_path = "data"
