@@ -1,12 +1,11 @@
-import os
 import pickle
 import torch
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from torch_geometric.data import Data
 from torch_geometric.data import InMemoryDataset
 from torch_geometric.loader import DataLoader
 
 from map_matching.utils.road_network import BaseRoadNetwork
-from road_network_speed_estimation.utils import min_max_scaler, z_score
 
 
 class STRoadGraph:
@@ -45,9 +44,6 @@ class STRoadGraph:
 
         # 特征transformed并张量化
         self.edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
-        # self.edge_attrs = torch.tensor(edge_attrs, dtype=torch.double)
-        # self.road_attrs = torch.tensor(road_attrs, dtype=torch.double)
-        # self.targets = torch.tensor(targets, dtype=torch.double)
         self.edge_attrs = torch.DoubleTensor(edge_attrs)
         self.road_attrs = torch.DoubleTensor(road_attrs)
         self.targets = torch.DoubleTensor(targets)
@@ -58,8 +54,10 @@ class STRoadGraph:
         y = self.targets[index]
         edge_index = self.edge_index
         edge_attr = self.edge_attrs[index]
-        return Data(x=min_max_scaler(x), y=z_score(y.reshape(1, -1)), edge_index=edge_index,
-                    edge_attr=z_score(edge_attr.reshape(1, -1)), graph_attr=self.graph_attrs[index])
+        return Data(x=torch.tensor(min_max_scaler.fit_transform(x), dtype=torch.double),
+                    y=torch.tensor(y_standard_scaler.fit_transform(y.reshape(-1, 1)), dtype=torch.double),
+                    edge_index=edge_index, graph_attr=self.graph_attrs[index],
+                    edge_attr=torch.tensor(edge_standard_scaler.fit_transform(edge_attr.reshape(-1, 1)), dtype=torch.double))
 
     def __len__(self):
         return len(self.graph_attrs)
@@ -91,3 +89,8 @@ def get_st_graph_loader(data_path, batch_size=4):
         st_graph_data = pickle.load(f)
         st_graph_dataset = STGraphDataset(STRoadGraph(st_graph_data))
     return DataLoader(st_graph_dataset, batch_size=batch_size, shuffle=True)
+
+
+y_standard_scaler = StandardScaler()
+edge_standard_scaler = StandardScaler()
+min_max_scaler = MinMaxScaler()
