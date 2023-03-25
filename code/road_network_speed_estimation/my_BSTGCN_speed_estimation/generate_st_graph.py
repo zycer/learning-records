@@ -29,7 +29,7 @@ class STRoadGraph:
             lanes_roads = [graph_obj.road_graph.nodes[_road_id]["lanes"] for _road_id in graph_obj.road_graph.nodes]
             length_roads = [graph_obj.road_graph.nodes[_road_id]["length"] for _road_id in graph_obj.road_graph.nodes]
             target = [graph_obj.road_graph.nodes[_road_id]["length"] / _graph_data[_road_id] for _road_id in
-                      graph_obj.road_graph.nodes]   # [road_travel_time,...]
+                      graph_obj.road_graph.nodes]  # [road_travel_time,...]
             for one_road_attr in zip(free_speed_roads, lanes_roads, length_roads):
                 road_attr.append(one_road_attr)
 
@@ -86,8 +86,8 @@ def get_st_road_graph(data_path):
     return STRoadGraph(st_graph_data)
 
 
-def get_st_graph_loader(data_path):
+def get_st_graph_loader(data_path, batch_size=4):
     with open(data_path, "rb") as f:
         st_graph_data = pickle.load(f)
         st_graph_dataset = STGraphDataset(STRoadGraph(st_graph_data))
-    return DataLoader(st_graph_dataset, batch_size=1, shuffle=True)
+    return DataLoader(st_graph_dataset, batch_size=batch_size, shuffle=True)
