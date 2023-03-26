@@ -27,7 +27,8 @@ ROAD_MAX_SPEED = {
 ROAD_DATA_PATH = "../../map_matching/data/road_network/other/road_data"
 INTERSEC_DATA_PATH = "../../map_matching/data/road_network/other/vertex_data"
 GRAPH_DATA = "../../map_matching/data/graph_data"
-ROAD_ATTR = ["link_id", "from_node_id", "to_node_id", "name", "length", "lanes", "free_speed", "average_speed", "geometry"]
+ROAD_ATTR = ["link_id", "from_node_id", "to_node_id", "name", "length", "lanes",
+             "free_speed", "average_speed", "geometry", "type_name"]
 INTERSEC_ATTR = ["intersection_id", "name", "x_coord", "y_coord"]
 
 REDIS_INFO = {

@@ -11,19 +11,19 @@ from torch.optim import Adam, RMSprop
 from torch.utils.tensorboard import SummaryWriter
 from road_network_speed_estimation.utils import BayesianGCNVAE
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import edge_standard_scaler, y_standard_scaler
-from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import min_max_scaler
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import get_st_graph_loader
 
 
 # 更新BayesianGCNVAE类以接受STGCN输出
 class STGCNBayesianGCNVAE(nn.Module):
-    def __init__(self, _num_features, _hidden_size, _latent_size, _out_size):
+    def __init__(self, _num_features, _hidden_size, _latent_size, _out_size, combined_edge_features_dim=9):
         super(STGCNBayesianGCNVAE, self).__init__()
         self.stgcn1 = FeaStConv(_num_features, _hidden_size, 2)
         self.stgcn2 = FeaStConv(_hidden_size, _latent_size, 2)
         self.liner = nn.Linear(_latent_size, _out_size)
         self.relu = nn.ReLU()
         self.bayesian_gcn_vae = BayesianGCNVAE(_num_features, _hidden_size, _latent_size)
+        self.edge_time_predictor = nn.Linear(combined_edge_features_dim, 1)  # 添加一个线性层以预测行驶时间
 
     def forward(self, _x, _edge_index, _edge_weight):
         _x = self.stgcn1(_x, _edge_index)
@@ -31,12 +31,15 @@ class STGCNBayesianGCNVAE(nn.Module):
         _x = self.stgcn2(_x, _edge_index)
         _x = self.relu(_x)
         _x = self.liner(_x)
-        return self.bayesian_gcn_vae(_x, _edge_index, _edge_weight)
+        _recon_x, _mu, _logvar = self.bayesian_gcn_vae(_x, _edge_index, _edge_weight)
+        _predicted_edge_time = self.predict_edge_time(_edge_index, _x, _edge_weight)
+        return _recon_x, _mu, _logvar, _predicted_edge_time
 
-    def predict_edge_time(self, edge_index, _x):
+    def predict_edge_time(self, edge_index, _x, edge_weight):
         row, col = edge_index
-        edge_features = torch.abs(_x[row] - _x[col])  # 这里我们使用L1距离作为边特征
-        return edge_features.sum(dim=1, keepdim=True)  # 将所有节点特征之间的差异相加以预测行驶时间
+        edge_features = torch.abs(_x[row] - _x[col])  # 使用L1距离作为节点特征之间的差异
+        combined_edge_features = torch.cat([edge_features, edge_weight], dim=-1)  # 将原始行驶时间与节点特征差异拼接在一起
+        return self.edge_time_predictor(combined_edge_features)
 
 
 def train():
@@ -55,8 +58,14 @@ def train():
                 snapshot_batch = batch.to(device)
                 # 训练模型
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
-                reconstructed_x, mu, logvar = model(x.double(), edge_index, edge_weight)
-                loss = model.bayesian_gcn_vae.loss(reconstructed_x, x.double(), mu, logvar)
+                recon_x, mu, logvar, predicted_edge_time = model(x.double(), edge_index, edge_weight)
+                # loss = model.bayesian_gcn_vae.loss(reconstructed_x, x.double(), mu, logvar)
+                # 计算损失
+                reconstruction_loss = model.bayesian_gcn_vae.loss(recon_x, x, mu, logvar)
+                y = edge_standard_scaler.inverse_transform(edge_weight.cpu())
+                travel_time_loss = travel_time_loss_fn(predicted_edge_time.cpu(),
+                                                       torch.tensor(y[:, 1], dtype=torch.float64).reshape(-1, 1))
+                loss = alpha * reconstruction_loss + beta * travel_time_loss + gamma * travel_time_loss
                 epoch_loss_values.append(loss.item())
                 loss.backward()
                 # 梯度裁剪
@@ -75,7 +84,8 @@ def train():
 
 def predict():
     writer = SummaryWriter("runs/TTDE predict")
-    model.load_state_dict(torch.load(model_save_path))
+    if os.path.exists(model_save_path):
+        model.load_state_dict(torch.load(model_save_path))
     model.eval()
     for num, test_data_file in enumerate(test_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file))
@@ -84,7 +94,7 @@ def predict():
                 snapshot_batch = batch.to(device)
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
                 recon_x, mu, logvar = model(x, edge_index, edge_weight)
-                y_pred = model.predict_edge_time(snapshot_batch.edge_index, recon_x)
+                y_pred = model.predict_edge_time(snapshot_batch.edge_index, recon_x, edge_weight)
                 y_pred = edge_standard_scaler.inverse_transform(y_pred.cpu().numpy())
                 mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu()), y_pred)
                 writer.add_scalar("mse", mse, num_batch + num * num_epochs)
@@ -93,12 +103,17 @@ def predict():
 
 
 if __name__ == '__main__':
-    num_features = 3
+    # 超参数
+    num_features = 7
     hidden_size = 32
     latent_size = 16
-    out_size = 3
+    out_size = 7
     num_epochs = 10
-    learning_rate = 0.001
+    learning_rate = 0.01
+    alpha = 1.0  # 重构损失权重
+    beta = 1.0  # KL散度损失权重
+    gamma = 1.0  # 行驶时间预测损失权重
+
     model_save_path = "saved_models/ttde_model.pth"
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
@@ -106,6 +121,7 @@ if __name__ == '__main__':
     model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     # optimizer = RMSprop(model.parameters(), lr=learning_rate)
     optimizer = Adam(model.parameters(), lr=learning_rate)
+    travel_time_loss_fn = nn.MSELoss()
 
     # 分配数据
     data_path = "data"

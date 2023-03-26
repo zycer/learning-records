@@ -15,6 +15,10 @@ class BayesianGCNConv(MessagePassing):
         self.weight_rho = torch.nn.Parameter(torch.Tensor(in_channels, out_channels))
         self.bias_mu = torch.nn.Parameter(torch.Tensor(out_channels))
         self.bias_rho = torch.nn.Parameter(torch.Tensor(out_channels))
+        self.edge_feature_combiner = torch.nn.Sequential(
+            torch.nn.Linear(in_channels + 2, in_channels),  # 线性层将输入维度从 in_channels + 2 转换为 in_channels
+            torch.nn.ReLU()  # 应用ReLU激活函数
+        )
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -43,7 +47,11 @@ class BayesianGCNConv(MessagePassing):
         return out
 
     def message(self, x_j, edge_weight):
-        return x_j if edge_weight is None else edge_weight.view(-1, 1) * x_j
+        if edge_weight is None:
+            return x_j
+        else:
+            combined_features = torch.cat([x_j, edge_weight], dim=-1)  # 将边特征与节点特征连接起来
+            return self.edge_feature_combiner(combined_features)  # 通过神经网络层处理组合特征
 
 
 class BayesianGCNVAE(nn.Module):

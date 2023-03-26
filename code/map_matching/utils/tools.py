@@ -30,6 +30,7 @@ def get_road_data(road_path):
     average_speed = [known_roads[idx] if idx in known_roads.keys() else 0 for idx in road_ids]
     free_speed = [RMS.get(road_data["link_type_name"][i], RMS["other"]) if np.isnan(f_speed) else f_speed for i, f_speed
                   in enumerate(road_data["free_speed"].values)]
+    type_names = road_data["link_type_name"].values
 
     # print("road_ids: ", len(road_ids))
     # print("from_vertexes: ", len(from_vertexes))
@@ -40,7 +41,8 @@ def get_road_data(road_path):
     # print("free_speed: ", len(free_speed))
     # print("average_speed: ", len(average_speed))
     # print("geometries: ", len(geometries))
-    return zip(road_ids, from_vertexes, to_vertexes, road_names, mileages, lanes, free_speed, average_speed, geometries)
+    return zip(road_ids, from_vertexes, to_vertexes, road_names,
+               mileages, lanes, free_speed, average_speed, geometries, type_names)
 
 
 def get_intersection_data(interaction_path):
