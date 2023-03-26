@@ -10,7 +10,7 @@ from torch_geometric.nn.conv import FeaStConv
 from torch.optim import Adam, RMSprop
 from torch.utils.tensorboard import SummaryWriter
 from road_network_speed_estimation.utils import BayesianGCNVAE
-from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import edge_standard_scaler, y_standard_scaler
+from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import edge_standard_scaler
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import get_st_graph_loader
 
 
@@ -46,7 +46,7 @@ def train():
     if os.path.exists(model_save_path):
         model.load_state_dict(torch.load(model_save_path))
         print("Loading model successfully.")
-    writer = SummaryWriter("runs/TTDE train loss")
+    writer = SummaryWriter("run_logs/TTDE train")
     model.train()
     print("Start model training.")
     for num, train_data_file in enumerate(train_data_files):
@@ -59,12 +59,9 @@ def train():
                 # 训练模型
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
                 recon_x, mu, logvar, predicted_edge_time = model(x.double(), edge_index, edge_weight)
-                # loss = model.bayesian_gcn_vae.loss(reconstructed_x, x.double(), mu, logvar)
                 # 计算损失
                 reconstruction_loss = model.bayesian_gcn_vae.loss(recon_x, x, mu, logvar)
-                y = edge_standard_scaler.inverse_transform(edge_weight.cpu())
-                travel_time_loss = travel_time_loss_fn(predicted_edge_time.cpu(),
-                                                       torch.tensor(y[:, 1], dtype=torch.float64).reshape(-1, 1))
+                travel_time_loss = travel_time_loss_fn(predicted_edge_time, edge_weight[:, 1].reshape(-1, 1))
                 loss = alpha * reconstruction_loss + beta * travel_time_loss + gamma * travel_time_loss
                 epoch_loss_values.append(loss.item())
                 loss.backward()
@@ -74,8 +71,8 @@ def train():
 
             epoch_loss = sum(epoch_loss_values) / len(epoch_loss_values)
             writer.add_scalar("Loss/train", epoch_loss, epoch + num * num_epochs)
-            print(f"\tdata file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}\n")
-            time.sleep(0.01)
+            print(f"-data file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}\n")
+            time.sleep(0.015)
 
         torch.save(model.state_dict(), model_save_path)
 
@@ -83,22 +80,31 @@ def train():
 
 
 def predict():
-    writer = SummaryWriter("runs/TTDE predict")
+    print("Starting model prediction.")
+    writer = SummaryWriter("run_logs/TTDE predict")
     if os.path.exists(model_save_path):
         model.load_state_dict(torch.load(model_save_path))
     model.eval()
     for num, test_data_file in enumerate(test_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file))
-        for num_batch, batch in enumerate(snapshot_graphs_loader):
+        batch_loss_list = []
+        for num_batch, batch in tqdm.tqdm(enumerate(snapshot_graphs_loader), total=len(snapshot_graphs_loader)):
             with torch.no_grad():
                 snapshot_batch = batch.to(device)
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
-                recon_x, mu, logvar = model(x, edge_index, edge_weight)
-                y_pred = model.predict_edge_time(snapshot_batch.edge_index, recon_x, edge_weight)
-                y_pred = edge_standard_scaler.inverse_transform(y_pred.cpu().numpy())
-                mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu()), y_pred)
+                _, _, _, predicted_edge_time = model(x, edge_index, edge_weight)
+                predicted_edge_time = predicted_edge_time.cpu()  # 从GPU中取出预测数据
+                # 对预测数据进行维度为1数值为0的阔维，使得与原始edge_weight维度相同，从而进行反标准化
+                zeros = torch.zeros_like(predicted_edge_time)
+                predicted_time_expanded = torch.stack([zeros.squeeze(-1), predicted_edge_time.squeeze(-1)], dim=-1)
+                inverse_edge_time = edge_standard_scaler.inverse_transform(predicted_time_expanded.detach().numpy())
+                final_predicted_edge_time = torch.tensor(inverse_edge_time[:, 1]).reshape(-1, 1)
+                mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1],
+                                         final_predicted_edge_time)
                 writer.add_scalar("mse", mse, num_batch + num * num_epochs)
-                print("Mean squared error:", mse)
+                batch_loss_list.append(mse)
+
+        print(f"-data file: {test_data_file}, Loss: {sum(batch_loss_list) / len(batch_loss_list)}\n")
     writer.close()
 
 
