@@ -83,6 +83,69 @@ class STRoadGraph:
     def __len__(self):
         return len(self.graph_attrs)
 
+    
+class TestSTRoadGraph():
+    def __init__(self, st_graph_data):
+        road_nums = 520
+        edge_index = torch.randint(0, road_nums, (2, 1000))
+
+        graph_attrs = []
+        road_attrs = []
+        edge_attrs = []
+
+        for _timestamp, _graph_data in st_graph_data.items():
+            graph_attrs.append(_timestamp)  # [timestamp1, timestamp2,...]
+            road_attr = []  # [(限速,车道数,长度),...]
+            edge_attr = []  # [两个道路之间的行驶时间,...]
+
+            road_free_speeds = []
+            road_lanes = []
+            road_lengths = []
+            road_types = []
+            road_travel_times = []
+
+            for _road_id in range(road_nums):
+                road_free_speeds.append(st_graph_data[_timestamp][_road_id][0])
+                road_lanes.append(st_graph_data[_timestamp][_road_id][2])
+                road_types.append(st_graph_data[_timestamp][_road_id][4])
+
+            road_types_one_hot = pd.get_dummies(road_types).values  # 独热编码
+
+            for one_road_attr in zip(road_free_speeds, road_lanes):
+                road_attr.append(one_road_attr)
+
+            # 将道路类型的独热编码与其他特征连接起来
+            road_attr = np.concatenate((road_attr, road_types_one_hot), axis=1)
+
+            for from_road_id, to_road_id in zip(edge_index[0], edge_index[1]):
+                from_road_id = int(from_road_id)
+                road_travel_times.append(st_graph_data[_timestamp][from_road_id][1] / st_graph_data[_timestamp][from_road_id][3])
+                road_lengths.append(st_graph_data[_timestamp][from_road_id][1])
+
+            for one_edge_attr in zip(road_lengths, road_travel_times):
+                edge_attr.append(one_edge_attr)
+
+            road_attrs.append(road_attr)
+            edge_attrs.append(edge_attr)
+
+        # 特征transformed并张量化
+        self.edge_index = torch.tensor(edge_index, dtype=torch.long)
+        self.edge_attrs = torch.DoubleTensor(edge_attrs)
+        self.road_attrs = torch.DoubleTensor(np.array(road_attrs))
+        self.graph_attrs = torch.tensor(graph_attrs, dtype=torch.long)
+
+    def __getitem__(self, index):
+        x = self.road_attrs[index]
+        edge_index = self.edge_index
+        edge_attr = self.edge_attrs[index]
+        return Data(x=torch.tensor(min_max_scaler.fit_transform(x), dtype=torch.double),
+                    edge_index=edge_index, graph_attr=self.graph_attrs[index],
+                    edge_attr=torch.tensor(
+                        edge_standard_scaler.fit_transform(edge_attr), dtype=torch.double))
+
+    def __len__(self):
+        return len(self.graph_attrs)
+    
 
 class STGraphDataset(InMemoryDataset):
     def __init__(self, data_list):
@@ -111,3 +174,9 @@ def get_st_graph_loader(data_path, batch_size=1):
         st_graph_dataset = STGraphDataset(STRoadGraph(st_graph_data))
     return DataLoader(st_graph_dataset, batch_size=batch_size, shuffle=True)
 
+
+def get_test_st_graph_loader(data_path, batch_size=1):
+    with open(data_path, "rb") as f:
+        st_graph_data = pickle.load(f)
+        st_graph_dataset = STGraphDataset(TestSTRoadGraph(st_graph_data))
+    return DataLoader(st_graph_dataset, batch_size=batch_size, shuffle=True)
