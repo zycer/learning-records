@@ -63,12 +63,20 @@ class GATDiscriminator(nn.Module):
 
 
 def train():
-    if os.path.exists(model_save_path):
-        model.load_state_dict(torch.load(model_save_path))
-        print("Loading model successfully.")
-    writer = SummaryWriter("run_logs/TTDE train 1")
+    # 定义模型与优化器
+    model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
+    optimizer = Adam(model.parameters(), lr=learning_rate)
+    _model_path = os.path.join(model_save_path, "generic_model.pth")
+    writer = SummaryWriter("run_logs/TTDE Generic Train")
+    x_coordinate = 0
+
+    if os.path.exists(_model_path):
+        model.load_state_dict(torch.load(_model_path))
+        print("Loading generic model successfully.")
+
     model.train()
-    print("Start model training.")
+    print("Start model training...")
+
     for num, train_data_file in enumerate(train_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file))
         for epoch in range(num_epochs):
@@ -88,25 +96,30 @@ def train():
                 # 梯度裁剪
                 clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
+                writer.add_scalar("Loss/train", loss.item(), x_coordinate)
+                x_coordinate += 1
 
             epoch_loss = sum(epoch_loss_values) / len(epoch_loss_values)
-            writer.add_scalar("Loss/train", epoch_loss, epoch + num * num_epochs)
             print(f"-data file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}\n")
             time.sleep(0.015)
-            torch.save(model.state_dict(), model_save_path)
-            exit()
+            torch.save(model.state_dict(), _model_path)
 
-        torch.save(model.state_dict(), model_save_path)
+        torch.save(model.state_dict(), _model_path)
 
     writer.close()
 
 
-def predict():
-    print("Starting model prediction.")
-    writer = SummaryWriter("run_logs/TTDE predict 1")
-    if os.path.exists(model_save_path):
-        model.load_state_dict(torch.load(model_save_path))
-    model.eval()
+def predict(_model_name):
+    x_coordinate = 0
+    writer = SummaryWriter("run_logs/TTDE predict")
+    model_path = os.path.join(model_save_path, _model_name)
+    generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
+    if os.path.exists(model_path):
+        generator.load_state_dict(torch.load(model_path))
+        print("Loading gans model successfully.")
+
+    print("Starting model prediction...")
+    generator.eval()
     for num, test_data_file in enumerate(test_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file))
         batch_loss_list = []
@@ -114,7 +127,7 @@ def predict():
             with torch.no_grad():
                 snapshot_batch = batch.to(device)
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
-                _, _, _, predicted_edge_time = model(x, edge_index, edge_weight)
+                _, _, _, predicted_edge_time = generator(x, edge_index, edge_weight)
                 predicted_edge_time = predicted_edge_time.cpu()  # 从GPU中取出预测数据
                 # 对预测数据进行维度为1数值为0的阔维，使得与原始edge_weight维度相同，从而进行反标准化
                 zeros = torch.zeros_like(predicted_edge_time)
@@ -123,23 +136,46 @@ def predict():
                 final_predicted_edge_time = torch.tensor(inverse_edge_time[:, 1]).reshape(-1, 1)
                 mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1],
                                          final_predicted_edge_time)
-                writer.add_scalar("mse", mse, num_batch + num * math.ceil(100 / 3))
+                writer.add_scalar("mse", mse, x_coordinate)
                 batch_loss_list.append(mse)
+                x_coordinate += 1
 
         print(f"-data file: {test_data_file}, Loss: {sum(batch_loss_list) / len(batch_loss_list)}\n")
     writer.close()
 
 
 def gans_train():
+    # 定义生成器与判别器
     generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     discriminator = GATDiscriminator(out_size, 64, 4).double().to(device)
+    writer = SummaryWriter("run_logs/TTDE GANs Train")
+    gans_generator_path = os.path.join(model_save_path, "gans_generator.pth")
+    gans_discriminator_path = os.path.join(model_save_path, "gans_discriminator.pth")
+
+    if os.path.exists(gans_generator_path):
+        generator.load_state_dict(torch.load(gans_generator_path))
+        print("Loading gans generator successfully.")
+
+    if os.path.exists(gans_discriminator_path):
+        discriminator.load_state_dict(torch.load(gans_discriminator_path))
+        print("Loading gans discriminator successfully.")
+
+    print("Start gans model training...")
+
+    # 生成器与判别器开启训练模式
+    generator.train()
+    discriminator.train()
+
     # 选择优化器
     generator_optimizer = optim.Adam(generator.parameters(), lr=0.001)
     discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.001)
 
     # 定义损失函数
     bce_loss = torch.nn.BCELoss()
-    reconstruction_loss = nn.MSELoss()  # 用于生成器的重构损失
+    # 用于生成器的重构损失
+    reconstruction_loss = nn.MSELoss()
+    # x_coordinate
+    x_coordinate = 0
 
     for num, train_data_file in enumerate(train_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file))
@@ -147,7 +183,7 @@ def gans_train():
         discriminator_loss_list = []
 
         for epoch in range(num_epochs):
-            for batch in tqdm.tqdm(snapshot_graphs_loader):
+            for _index, batch in tqdm.tqdm(enumerate(snapshot_graphs_loader), total=len(snapshot_graphs_loader)):
                 snapshot_batch = batch.to(device)
                 # 判别器训练
                 discriminator_optimizer.zero_grad()
@@ -163,15 +199,14 @@ def gans_train():
 
                 # 计算判别器在生成数据上的损失
                 fake_labels = torch.zeros(x.size(0), 1).double().to(device)
-                print(recon_x.shape)
-                print(edge_index.shape)
-                print(predicted_edge_time.shape)
                 fake_preds = discriminator(recon_x, edge_index, predicted_edge_time)
                 fake_loss = bce_loss(fake_preds, fake_labels)
 
                 # 总判别器损失
                 discriminator_loss = real_loss + fake_loss
                 discriminator_loss_list.append(discriminator_loss.item())
+
+                # 后向传播
                 discriminator_loss.backward(retain_graph=True)
                 discriminator_optimizer.step()
 
@@ -188,10 +223,22 @@ def gans_train():
                 generator_total_loss.backward()
                 generator_optimizer.step()
 
+                writer.add_scalar("Discriminator loss/train", discriminator_loss.item(), x_coordinate)
+                writer.add_scalar("Generator loss/train", generator_total_loss.item(), x_coordinate)
+                x_coordinate += 1
+
+            # 保存模型
+            torch.save(generator.state_dict(), gans_generator_path)
+            torch.save(discriminator.state_dict(), gans_discriminator_path)
             # 输出日志
             print(
                 f"Epoch {epoch}, Generator loss: {sum(generator_loss_list) / len(generator_loss_list)}, \
                 Discriminator loss: {sum(discriminator_loss_list) / len(discriminator_loss_list)}")
+
+        # 保存模型
+        torch.save(generator.state_dict(), gans_generator_path)
+        torch.save(discriminator.state_dict(), gans_discriminator_path)
+    writer.close()
 
 
 if __name__ == '__main__':
@@ -208,15 +255,20 @@ if __name__ == '__main__':
     beta = 1.0  # KL散度损失权重
     gamma = 1.0  # 行驶时间预测损失权重
 
+    # torch清理GPU专用显存
     torch.cuda.empty_cache()
 
-    model_save_path = "saved_models/ttde_model_1.pth"
-    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    # 保存模型名称
+    model_save_path = "saved_models"
+    gans_model = "gans_generator.pth"
+    generic_model = "generic_model.pth"
 
-    # 创建模型、优化器
-    model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
-    # optimizer = RMSprop(model.parameters(), lr=learning_rate)
-    optimizer = Adam(model.parameters(), lr=learning_rate)
+    # 定义设备
+    device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+
+    # 创建模型、优化器、损失函数
+
     travel_time_loss_fn = nn.MSELoss()
 
     # 分配数据
@@ -230,9 +282,11 @@ if __name__ == '__main__':
     print("训练集：", train_data_files)
     print("测试集：", test_data_files, end="\n\n")
 
-    # 模型训练
+    # 传统模型训练
     # train()
-    gans_train()
+
+    # 生成对抗网络训练
+    # gans_train()
 
     # 模型预测
-    predict()
+    predict(gans_model)

@@ -168,7 +168,7 @@ def get_st_road_graph(data_path):
     return STRoadGraph(st_graph_data)
 
 
-def get_st_graph_loader(data_path, batch_size=1):
+def get_st_graph_loader(data_path, batch_size=3):
     with open(data_path, "rb") as f:
         st_graph_data = pickle.load(f)
         st_graph_dataset = STGraphDataset(STRoadGraph(st_graph_data))
