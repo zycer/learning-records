@@ -1,0 +1,50 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 创建一个 1x2 的子图布局
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 6.5))
+
+# 第一个子图
+x = np.arange(0, 60, 10)
+y1 = 1.7305 * x + 14.3278
+y2 = 6.1364 * x + 12.6117
+y3 = 0.4733 * x + 0.4696
+y4 = 0.0588 * x + 0.4402
+
+x1 = np.array([10, 20, 30, 40, 50])
+y11 = np.array([1.7305 * 10 + 14.3278, 1.7305 * 20 + 14.3278, 1.7305 * 30 + 14.3278, 1.7305 * 40 + 14.3278, 1.7305 * 50 + 14.3278])
+y21 = np.array([6.1364 * 10 + 12.6117, 6.1364 * 20 + 12.6117, 6.1364 * 30 + 12.6117, 6.1364 * 40 + 12.6117, 6.1364 * 50 + 12.6117])
+y31 = np.array([0.4733 * 10 + 0.4696, 0.4733 * 20 + 0.4696, 0.4733 * 30 + 0.4696, 0.4733 * 40 + 0.4696, 0.4733 * 50 + 0.4696])
+y41 = np.array([0.0588 * 10 + 0.4402, 0.0588 * 20 + 0.4402, 0.0588 * 30 + 0.4402, 0.0588 * 40 + 0.4402, 0.0588 * 50 + 0.4402])
+
+ax1.plot(x1, y11, color='blue', marker='^', linewidth=1, label="Jiang et al.")
+ax1.plot(x1, y21, color='orange', marker='s', linewidth=1, label="Bayat et al.")
+ax1.plot(x1, y31, color='green', marker='x', linewidth=1, label="Zhang et al.")
+ax1.plot(x1, y41, color='red', marker='*', linewidth=1, label="Proposed")
+
+ax1.plot(x, y1, color='blue')
+ax1.plot(x, y2, color='orange')
+ax1.plot(x, y3, color='green')
+ax1.plot(x, y4, color='red')
+
+ax1.set_xlabel('n (number of messages)', fontsize=12)
+ax1.set_ylabel('Time (ms)', fontsize=12)
+ax1.set_xticks([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50])
+ax1.set_yticks([0, 50, 100, 150, 200, 250, 300])
+ax1.legend(loc='center right')
+ax1.grid()
+
+# 第二个子图
+schemes = ['Jiang et al.', 'Bayat et al', 'Zhang et al', 'Proposed']
+times = [16.0583, 18.7481, 0.9429, 0.4438]
+color_backup = ['blue', 'orange', 'green', 'red']
+ax2.bar(schemes, times, width=0.6, color=color_backup, zorder=10)
+
+ax2.set_yticks([0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
+ax2.set_ylabel('Time(ms)', fontsize=12)
+ax2.set_xlabel('Contrast Schemes', fontsize=12)
+
+ax2.grid(b="True", axis="y", zorder=0)
+
+plt.tight_layout()  # 避免子标题重合
+plt.show()
