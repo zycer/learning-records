@@ -70,7 +70,7 @@ if __name__ == '__main__':
     multi_network = MultiRoadNetwork("gcn")
     multi_network.init_graph()
     time_road_data = multi_network.generate_st_road_graph()
-    data_path = "../road_network_speed_estimation/my_BSTGCN_speed_estimation/data"
+    data_path = "data"
 
     print("\nComplete data...")
     timestamp_list = []
