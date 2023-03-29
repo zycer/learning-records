@@ -31,6 +31,19 @@ ax1.set_xlabel('n (number of messages)', fontsize=12)
 ax1.set_ylabel('Time (ms)', fontsize=12)
 ax1.set_xticks([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50])
 ax1.set_yticks([0, 50, 100, 150, 200, 250, 300])
+
+
+# 第一个子图的局部放大
+axins = ax1.inset_axes([0.06, 0.60, 0.45, 0.28])  # [left, bottom, width, height]
+axins.plot(x, y3, color='green')
+axins.plot(x, y4, color='red')
+axins.set_xlim(40, 50)
+axins.set_xticks([0, 10, 20, 30, 40, 50])
+axins.grid()
+
+
+
+
 ax1.legend(loc='center right')
 ax1.grid()
 
