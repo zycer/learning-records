@@ -265,7 +265,7 @@ if __name__ == '__main__':
 
     # 定义设备
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    # device = torch.device("cpu")
 
     # 创建模型、优化器、损失函数
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
     # 分配数据
     data_path = "data"
-    data_files = os.listdir(data_path)
+    data_files = sorted(os.listdir(data_path), key=lambda name: int(name.split(".")[0]))
     train_ratio = 0.8
     test_ratio = 0.2
     train_data_files = [data_files[index] for index in range(int(len(data_files) * train_ratio))]
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     print("测试集：", test_data_files, end="\n\n")
 
     # 传统模型训练
-    # train()
+    train()
 
     # 生成对抗网络训练
     # gans_train()
