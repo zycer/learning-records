@@ -16,15 +16,14 @@ class BaseRoadNetwork:
             self.init_graph()
 
     def init_graph(self):
-        # cur_path = os.path.abspath(os.path.dirname(__file__))
-        # work_path = cur_path + "\\.." if "utils" in cur_path else cur_path
-        # os.chdir(work_path)
+        cur_path = os.path.abspath(os.path.dirname(__file__))
+        work_path = cur_path + "\\.." if "utils" in cur_path else cur_path
         road_data = [get_road_data(road_file) for road_file in
-                     Path(ROAD_DATA_PATH).iterdir()]  # save road data iterator
+                     Path(os.path.join(work_path, ROAD_DATA_PATH)).iterdir()]  # save road data iterator
         intersection_data = [get_intersection_data(intersection_file) for intersection_file in
-                             Path(INTERSEC_DATA_PATH).iterdir()]  # save intersection data iterator
+                             Path(os.path.join(work_path, INTERSEC_DATA_PATH)).iterdir()]  # save intersection data iterator
         graph_data = [get_graph_data(graph_file) for graph_file in
-                      Path(GRAPH_DATA).iterdir()]
+                      Path(os.path.join(work_path, GRAPH_DATA)).iterdir()]
 
         for road_iter in road_data:
             for road_one_info in road_iter:
@@ -36,7 +35,7 @@ class BaseRoadNetwork:
         for intersec_iter in intersection_data:
             for intersec_one_info in intersec_iter:
                 intersec_attr_dict = dict(zip(INTERSEC_ATTR, intersec_one_info))
-                self.intersection_dict[intersec_attr_dict["intersection_id"]] = intersec_attr_dict
+                self.intersection_dict[intersec_attr_dict["node_id"]] = intersec_attr_dict
                 # traffic_graph.add_node(intersec_attr_dict["node_id"], **intersec_attr_dict)
 
         for road_one in self.roads_dict.values():
@@ -64,3 +63,7 @@ class BaseRoadNetwork:
                     self.road_graph.add_edge(edge[0], edge[1], **self.intersection_dict[int(edge[2])])
 
 
+# a = BaseRoadNetwork("gcn")
+# a.init_graph()
+#
+# print(a.road_graph.nodes[0])
