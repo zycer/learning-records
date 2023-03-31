@@ -19,14 +19,14 @@ from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph 
 
 # 更新BayesianGCNVAE类以接受STGCN输出
 class STGCNBayesianGCNVAE(nn.Module):
-    def __init__(self, _num_features, _hidden_size, _latent_size, _out_size, _combined_edge_features_dim=9):
+    def __init__(self, _num_features, _hidden_size, _latent_size, _out_size, combined_edge_features_dim=9):
         super(STGCNBayesianGCNVAE, self).__init__()
         self.stgcn1 = FeaStConv(_num_features, _hidden_size, 2)
         self.stgcn2 = FeaStConv(_hidden_size, _latent_size, 2)
         self.liner = nn.Linear(_latent_size, _out_size)
         self.relu = nn.ReLU()
         self.bayesian_gcn_vae = BayesianGCNVAE(_num_features, _hidden_size, _latent_size)
-        self.edge_time_predictor = nn.Linear(_combined_edge_features_dim, 1)  # 添加一个线性层以预测行驶时间
+        self.edge_time_predictor = nn.Linear(combined_edge_features_dim, 1)  # 添加一个线性层以预测行驶时间
 
     def forward(self, _x, _edge_index, _edge_weight):
         _x = self.stgcn1(_x, _edge_index)
@@ -63,12 +63,17 @@ class GATDiscriminator(nn.Module):
 
 
 def train():
+    # torch清理GPU专用显存
+    if device != "cpu":
+        torch.cuda.empty_cache()
     # 定义模型与优化器
     model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     optimizer = Adam(model.parameters(), lr=learning_rate)
-    _model_path = os.path.join(model_save_path, "generic_model.pth")
-    writer = SummaryWriter("run_logs/TTDE Generic Train")
+    travel_time_loss_fn = nn.MSELoss()
+    _model_path = os.path.join(model_save_path, generic_model)
+    writer = SummaryWriter(os.path.join(run_logs, "TTDE Generic Train"))
     x_coordinate = 0
+    train_file_num = 0
 
     if os.path.exists(_model_path):
         model.load_state_dict(torch.load(_model_path))
@@ -76,9 +81,15 @@ def train():
 
     model.train()
     print("Start model training...")
+    train_log_path = os.path.join(train_logs, "generic_train_log.log")
+    if os.path.exists(train_log_path):
+        with open(train_log_path, "r") as f:
+            train_file_num = int(f.read())
 
     for num, train_data_file in enumerate(train_data_files):
-        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file))
+        if num <= train_file_num:
+            continue
+        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file), batch_size=3)
         for epoch in range(num_epochs):
             optimizer.zero_grad()
             epoch_loss_values = []
@@ -102,21 +113,25 @@ def train():
             epoch_loss = sum(epoch_loss_values) / len(epoch_loss_values)
             print(f"-data file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}\n")
             time.sleep(0.015)
-            torch.save(model.state_dict(), _model_path)
 
         torch.save(model.state_dict(), _model_path)
+        with open(train_log_path, "w") as ff:
+            ff.write(str(num))
 
     writer.close()
 
 
 def predict(_model_name):
+    # torch清理GPU专用显存
+    if device != "cpu":
+        torch.cuda.empty_cache()
     x_coordinate = 0
     writer = SummaryWriter("run_logs/TTDE predict")
     model_path = os.path.join(model_save_path, _model_name)
     generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     if os.path.exists(model_path):
         generator.load_state_dict(torch.load(model_path))
-        print("Loading gans model successfully.")
+        print("Loading model successfully.")
 
     print("Starting model prediction...")
     generator.eval()
@@ -136,21 +151,24 @@ def predict(_model_name):
                 final_predicted_edge_time = torch.tensor(inverse_edge_time[:, 1]).reshape(-1, 1)
                 mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1],
                                          final_predicted_edge_time)
-                writer.add_scalar("mse", mse, x_coordinate)
                 batch_loss_list.append(mse)
-                x_coordinate += 1
 
-        print(f"-data file: {test_data_file}, Loss: {sum(batch_loss_list) / len(batch_loss_list)}\n")
+        batch_average_mse = sum(batch_loss_list) / len(batch_loss_list)
+        writer.add_scalar("mse", batch_average_mse, x_coordinate)
+        print(f"-data file: {test_data_file}, Loss: {batch_average_mse}\n")
+        x_coordinate += 1
     writer.close()
 
 
 def gans_train():
+    # torch清理GPU专用显存
+    torch.cuda.empty_cache()
     # 定义生成器与判别器
     generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     discriminator = GATDiscriminator(out_size, 64, 4).double().to(device)
-    writer = SummaryWriter("run_logs/TTDE GANs Train")
-    gans_generator_path = os.path.join(model_save_path, "gans_generator.pth")
-    gans_discriminator_path = os.path.join(model_save_path, "gans_discriminator.pth")
+    writer = SummaryWriter(os.path.join(run_logs, "TTDE GANs Train"))
+    gans_generator_path = os.path.join(model_save_path, gans_generator_model)
+    gans_discriminator_path = os.path.join(model_save_path, gans_discriminator_model)
 
     if os.path.exists(gans_generator_path):
         generator.load_state_dict(torch.load(gans_generator_path))
@@ -178,7 +196,7 @@ def gans_train():
     x_coordinate = 0
 
     for num, train_data_file in enumerate(train_data_files):
-        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file))
+        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file), batch_size=5)
         generator_loss_list = []
         discriminator_loss_list = []
 
@@ -227,9 +245,9 @@ def gans_train():
                 writer.add_scalar("Generator loss/train", generator_total_loss.item(), x_coordinate)
                 x_coordinate += 1
 
-            # 保存模型
-            torch.save(generator.state_dict(), gans_generator_path)
-            torch.save(discriminator.state_dict(), gans_discriminator_path)
+            # # 保存模型
+            # torch.save(generator.state_dict(), gans_generator_path)
+            # torch.save(discriminator.state_dict(), gans_discriminator_path)
             # 输出日志
             print(
                 f"Epoch {epoch}, Generator loss: {sum(generator_loss_list) / len(generator_loss_list)}, \
@@ -249,27 +267,25 @@ if __name__ == '__main__':
     out_size = 7
     combined_edge_features_dim = 9  # 组合边特征维度
 
-    num_epochs = 10
+    num_epochs = 50
     learning_rate = 0.01
     alpha = 1.0  # 重构损失权重
     beta = 1.0  # KL散度损失权重
     gamma = 1.0  # 行驶时间预测损失权重
 
-    # torch清理GPU专用显存
-    torch.cuda.empty_cache()
-
     # 保存模型名称
     model_save_path = "saved_models"
-    gans_model = "gans_generator.pth"
+    run_logs = "run_logs"
+    train_logs = "train_logs"
+    gans_generator_model = "gans_generator.pth"
+    gans_discriminator_model = "gans_discriminator.pth"
+
     generic_model = "generic_model.pth"
 
     # 定义设备
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    print("训练设备：", device)
     # device = torch.device("cpu")
-
-    # 创建模型、优化器、损失函数
-
-    travel_time_loss_fn = nn.MSELoss()
 
     # 分配数据
     data_path = "data"
@@ -289,4 +305,4 @@ if __name__ == '__main__':
     # gans_train()
 
     # 模型预测
-    predict(gans_model)
+    predict(gans_generator_model)
