@@ -1,7 +1,9 @@
 import math
 import os
+import random
 import time
 
+import numpy as np
 import torch
 import torch.nn as nn
 import tqdm
@@ -15,6 +17,15 @@ from torch.utils.tensorboard import SummaryWriter
 from road_network_speed_estimation.utils import BayesianGCNVAE
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import edge_standard_scaler
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import get_st_graph_loader
+
+SEED = 42
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 # 更新BayesianGCNVAE类以接受STGCN输出
@@ -160,15 +171,19 @@ def predict(_model_name):
     writer.close()
 
 
-def gans_train():
+def gans_train(gp_lambda=10):
     # torch清理GPU专用显存
-    torch.cuda.empty_cache()
+    if device != "cpu":
+        torch.cuda.empty_cache()
     # 定义生成器与判别器
     generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     discriminator = GATDiscriminator(out_size, 64, 4).double().to(device)
+
     writer = SummaryWriter(os.path.join(run_logs, "TTDE GANs Train"))
     gans_generator_path = os.path.join(model_save_path, gans_generator_model)
     gans_discriminator_path = os.path.join(model_save_path, gans_discriminator_model)
+    train_log_path = os.path.join(train_logs, "gans_train_log.log")
+    train_file_num = 0
 
     if os.path.exists(gans_generator_path):
         generator.load_state_dict(torch.load(gans_generator_path))
@@ -177,6 +192,10 @@ def gans_train():
     if os.path.exists(gans_discriminator_path):
         discriminator.load_state_dict(torch.load(gans_discriminator_path))
         print("Loading gans discriminator successfully.")
+
+    if os.path.exists(train_log_path):
+        with open(train_log_path, "r") as f:
+            train_file_num = int(f.read())
 
     print("Start gans model training...")
 
@@ -196,7 +215,10 @@ def gans_train():
     x_coordinate = 0
 
     for num, train_data_file in enumerate(train_data_files):
-        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file), batch_size=5)
+        if num <= train_file_num:
+            continue
+
+        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file), batch_size=1)
         generator_loss_list = []
         discriminator_loss_list = []
 
@@ -206,8 +228,6 @@ def gans_train():
                 # 判别器训练
                 discriminator_optimizer.zero_grad()
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
-                edge_index = edge_index[:, :10]
-                edge_weight = edge_weight[0:10]
                 # 使用生成器生成图
                 recon_x, mu, logvar, predicted_edge_time = generator(x.double(), edge_index, edge_weight)
                 # 计算判别器在真实数据上的损失
@@ -220,12 +240,18 @@ def gans_train():
                 fake_preds = discriminator(recon_x, edge_index, predicted_edge_time)
                 fake_loss = bce_loss(fake_preds, fake_labels)
 
+                # 计算插值样本并计算梯度惩罚
+                gradients = compute_gradient_penalty(discriminator, x, recon_x, edge_index, edge_weight)
+                gradient_penalty = ((gradients.norm(2, dim=-1) - 1) ** 2).mean()
+
                 # 总判别器损失
-                discriminator_loss = real_loss + fake_loss
+                discriminator_loss = real_loss + fake_loss + gp_lambda * gradient_penalty
                 discriminator_loss_list.append(discriminator_loss.item())
 
                 # 后向传播
                 discriminator_loss.backward(retain_graph=True)
+                # 梯度裁剪
+                clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
                 discriminator_optimizer.step()
 
                 # 生成器训练
@@ -239,24 +265,53 @@ def gans_train():
                 generator_loss_list.append(generator_total_loss.item())
 
                 generator_total_loss.backward()
+                # 梯度裁剪
+                clip_grad_norm_(generator.parameters(), max_norm=1.0)
                 generator_optimizer.step()
 
                 writer.add_scalar("Discriminator loss/train", discriminator_loss.item(), x_coordinate)
                 writer.add_scalar("Generator loss/train", generator_total_loss.item(), x_coordinate)
                 x_coordinate += 1
 
-            # # 保存模型
-            # torch.save(generator.state_dict(), gans_generator_path)
-            # torch.save(discriminator.state_dict(), gans_discriminator_path)
             # 输出日志
             print(
-                f"Epoch {epoch}, Generator loss: {sum(generator_loss_list) / len(generator_loss_list)}, \
+                f"-Data file: {train_data_file}, Epoch {epoch}, Generator loss: {sum(generator_loss_list) / len(generator_loss_list)}, \
                 Discriminator loss: {sum(discriminator_loss_list) / len(discriminator_loss_list)}")
 
         # 保存模型
         torch.save(generator.state_dict(), gans_generator_path)
         torch.save(discriminator.state_dict(), gans_discriminator_path)
+
+        with open(train_log_path, "w") as ff:
+            ff.write(str(num))
+
     writer.close()
+
+
+def compute_gradient_penalty(discriminator, real_samples, fake_samples, edge_index, edge_weight):
+    batch_size, _ = real_samples.size()
+    _device = real_samples.device
+
+    # 计算插值样本
+    epsilon = torch.rand(batch_size, 1).to(_device)
+    interpolated_samples = (epsilon * real_samples + (1 - epsilon) * fake_samples).detach().requires_grad_(True)
+
+    # 计算插值样本在判别器中的输出
+    interpolated_outputs = discriminator(interpolated_samples, edge_index, edge_weight)
+
+    # 通过自动求导计算梯度
+    gradients = torch.autograd.grad(
+        outputs=interpolated_outputs,
+        inputs=interpolated_samples,
+        grad_outputs=torch.ones_like(interpolated_outputs).to(_device),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True
+    )[0]
+
+    # 计算梯度惩罚项
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty
 
 
 if __name__ == '__main__':
@@ -267,7 +322,7 @@ if __name__ == '__main__':
     out_size = 7
     combined_edge_features_dim = 9  # 组合边特征维度
 
-    num_epochs = 50
+    num_epochs = 5
     learning_rate = 0.01
     alpha = 1.0  # 重构损失权重
     beta = 1.0  # KL散度损失权重
@@ -279,13 +334,12 @@ if __name__ == '__main__':
     train_logs = "train_logs"
     gans_generator_model = "gans_generator.pth"
     gans_discriminator_model = "gans_discriminator.pth"
-
     generic_model = "generic_model.pth"
 
     # 定义设备
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     print("训练设备：", device)
-    # device = torch.device("cpu")
 
     # 分配数据
     data_path = "data"
@@ -299,10 +353,10 @@ if __name__ == '__main__':
     print("测试集：", test_data_files, end="\n\n")
 
     # 传统模型训练
-    train()
+    # train()
 
     # 生成对抗网络训练
-    # gans_train()
+    gans_train()
 
     # 模型预测
     predict(gans_generator_model)
