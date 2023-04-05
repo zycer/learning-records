@@ -18,6 +18,7 @@ from road_network_speed_estimation.utils import BayesianGCNVAE
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import edge_standard_scaler
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import get_st_graph_loader
 
+
 # SEED = 42
 #
 # random.seed(SEED)
@@ -112,7 +113,7 @@ def train():
                 # 计算损失
                 reconstruction_loss = model.bayesian_gcn_vae.loss(recon_x, x, mu, logvar)
                 travel_time_loss = travel_time_loss_fn(predicted_edge_time, edge_weight[:, 1].reshape(-1, 1))
-                loss = alpha * reconstruction_loss + beta * travel_time_loss + gamma * travel_time_loss
+                loss = beta_normalized * reconstruction_loss + delta_normalized * travel_time_loss
                 epoch_loss_values.append(loss.item())
                 loss.backward()
                 # 梯度裁剪
@@ -137,7 +138,7 @@ def predict(_model_name):
     if device != "cpu":
         torch.cuda.empty_cache()
     x_coordinate = 0
-    writer = SummaryWriter("run_logs/TTDE predict")
+    writer = SummaryWriter(f"run_logs/TTDE predict {_model_name}")
     model_path = os.path.join(model_save_path, _model_name)
     generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     if os.path.exists(model_path):
@@ -147,7 +148,7 @@ def predict(_model_name):
     print("Starting model prediction...")
     generator.eval()
     for num, test_data_file in enumerate(test_data_files):
-        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file))
+        snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file), batch_size=1)
         batch_loss_list = []
         for num_batch, batch in tqdm.tqdm(enumerate(snapshot_graphs_loader), total=len(snapshot_graphs_loader)):
             with torch.no_grad():
@@ -160,6 +161,7 @@ def predict(_model_name):
                 predicted_time_expanded = torch.stack([zeros.squeeze(-1), predicted_edge_time.squeeze(-1)], dim=-1)
                 inverse_edge_time = edge_standard_scaler.inverse_transform(predicted_time_expanded.detach().numpy())
                 final_predicted_edge_time = torch.tensor(inverse_edge_time[:, 1]).reshape(-1, 1)
+                final_predicted_edge_time = torch.clamp(final_predicted_edge_time, min=0)  # 将预测的时间限制在非负范围
                 mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1],
                                          final_predicted_edge_time)
                 batch_loss_list.append(mse)
@@ -175,9 +177,11 @@ def gans_train(gp_lambda=10):
     # torch清理GPU专用显存
     if device != "cpu":
         torch.cuda.empty_cache()
+    accumulation_steps = 20  # 每20次更新一次参数
     # 定义生成器与判别器
     generator = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
     discriminator = GATDiscriminator(out_size, 64, 4).double().to(device)
+    travel_time_loss_fn = nn.MSELoss()
 
     writer = SummaryWriter(os.path.join(run_logs, "TTDE GANs Train new"))
     gans_generator_path = os.path.join(model_save_path, gans_generator_model)
@@ -243,7 +247,6 @@ def gans_train(gp_lambda=10):
             for _index, batch in tqdm.tqdm(enumerate(snapshot_graphs_loader), total=len(snapshot_graphs_loader)):
                 snapshot_batch = batch.to(device)
                 # 判别器训练
-                discriminator_optimizer.zero_grad()
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
                 # 使用生成器生成图
                 recon_x, mu, logvar, predicted_edge_time = generator(x.double(), edge_index, edge_weight)
@@ -269,22 +272,32 @@ def gans_train(gp_lambda=10):
                 discriminator_loss.backward(retain_graph=True)
                 # 梯度裁剪
                 clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
-                discriminator_optimizer.step()
 
                 # 生成器训练
-                generator_optimizer.zero_grad()
                 # 计算生成器损失
                 generator_fake_preds = discriminator(recon_x, edge_index, predicted_edge_time)
                 generator_loss = bce_loss(generator_fake_preds, real_labels)  # 将生成数据误导为真实数据
                 recon_loss = reconstruction_loss(x, recon_x)  # 计算重构损失
                 kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())  # 计算KL散度损失
-                generator_total_loss = generator_loss + recon_loss + kl_divergence
-                generator_loss_list.append(generator_total_loss.item())
-
+                travel_time_loss = travel_time_loss_fn(predicted_edge_time, edge_weight[:, 1].reshape(-1, 1))
+                generator_total_loss = alpha_normalized * generator_loss + beta_normalized * recon_loss + \
+                                       gamma_normalized * kl_divergence + delta_normalized * travel_time_loss
                 generator_total_loss.backward()
+                generator_loss_list.append(generator_total_loss.item())
                 # 梯度裁剪
                 clip_grad_norm_(generator.parameters(), max_norm=1.0)
-                generator_optimizer.step()
+
+                # 仅在(i+1) % accumulation_steps == 0时，执行optimizer.step()和optimizer.zero_grad()操作
+                if (_index + 1) % accumulation_steps == 0:
+                    # 梯度裁剪
+                    clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
+                    clip_grad_norm_(generator.parameters(), max_norm=1.0)
+                    # 更新参数
+                    discriminator_optimizer.step()
+                    generator_optimizer.step()
+                    # 清空梯度
+                    discriminator_optimizer.zero_grad()
+                    generator_optimizer.zero_grad()
 
             average_discriminator_loss = sum(generator_loss_list) / len(generator_loss_list)
             average_generator_loss = sum(discriminator_loss_list) / len(discriminator_loss_list)
@@ -347,21 +360,29 @@ if __name__ == '__main__':
 
     num_epochs = 5
     learning_rate = 0.01
-    alpha = 1.0  # 重构损失权重
-    beta = 1.0  # KL散度损失权重
-    gamma = 1.0  # 行驶时间预测损失权重
+    alpha = 1.0  # 生成器的基本损失权重
+    beta = 1.0  # 重建损失权重
+    gamma = 0.1  # kl散度损失权重
+    delta = 10  # 预测行程时间损失权重
+
+    # 归一化超参数
+    total_weight = alpha + beta + gamma + delta
+    alpha_normalized = alpha / total_weight
+    beta_normalized = beta / total_weight
+    gamma_normalized = gamma / total_weight
+    delta_normalized = delta / total_weight
 
     # 保存模型名称
-    model_save_path = "saved_models"
-    run_logs = "run_logs"
-    train_logs = "train_logs"
+    model_save_path = "saved_models_new"
+    run_logs = "run_logs_new"
+    train_logs = "train_logs_new"
     gans_generator_model = "gans_generator_new.pth"
     gans_discriminator_model = "gans_discriminator_new.pth"
     generic_model = "generic_model.pth"
 
     # 定义设备
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    # device = torch.device("cpu")
     print("训练设备：", device)
 
     # 分配数据
@@ -370,16 +391,16 @@ if __name__ == '__main__':
     train_ratio = 0.8
     test_ratio = 0.2
     train_data_files = [data_files[index] for index in range(int(len(data_files) * train_ratio))]
-    test_data_files = list(set(data_files) - set(train_data_files))
+    test_data_files = list(sorted(set(data_files) - set(train_data_files), key=lambda name: int(name.split(".")[0])))
 
     print("训练集：", train_data_files)
     print("测试集：", test_data_files, end="\n\n")
 
     # 传统模型训练
-    # train()
+    train()
 
     # 生成对抗网络训练
-    gans_train()
+    # gans_train()
 
     # 模型预测
-    predict(gans_generator_model)
+    # predict(generic_model)
