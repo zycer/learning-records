@@ -14,7 +14,7 @@ from torch_geometric.nn import GATConv
 from torch_geometric.nn.conv import FeaStConv
 from torch.optim import Adam, RMSprop
 from torch.utils.tensorboard import SummaryWriter
-from road_network_speed_estimation.utils import BayesianGCNVAE
+from road_network_speed_estimation.utils import BayesianGCNVAE, BayesianGCNConv
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import edge_standard_scaler
 from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph import get_st_graph_loader
 
@@ -30,9 +30,9 @@ from road_network_speed_estimation.my_BSTGCN_speed_estimation.generate_st_graph 
 
 
 # 更新BayesianGCNVAE类以接受STGCN输出
-class STGCNBayesianGCNVAE(nn.Module):
+class STGCNBayesianGCNVAEBAK(nn.Module):
     def __init__(self, _num_features, _hidden_size, _latent_size, _out_size, combined_edge_features_dim=9):
-        super(STGCNBayesianGCNVAE, self).__init__()
+        super(STGCNBayesianGCNVAEBAK, self).__init__()
         self.stgcn1 = FeaStConv(_num_features, _hidden_size, 2)
         self.stgcn2 = FeaStConv(_hidden_size, _latent_size, 2)
         self.liner = nn.Linear(_latent_size, _out_size)
@@ -54,6 +54,71 @@ class STGCNBayesianGCNVAE(nn.Module):
         row, col = edge_index
         edge_features = torch.abs(_x[row] - _x[col])  # 使用L1距离作为节点特征之间的差异
         combined_edge_features = torch.cat([edge_features, edge_weight], dim=-1)  # 将原始行驶时间与节点特征差异拼接在一起
+        return self.edge_time_predictor(combined_edge_features)
+
+
+class STGCNBayesianGCNVAE(nn.Module):
+    def __init__(self, _num_features, _hidden_size, _latent_size, _out_size, _combined_edge_features_dim=9):
+        super(STGCNBayesianGCNVAE, self).__init__()
+
+        self._latent_size = _latent_size
+
+        self.stgcn1 = FeaStConv(_num_features, _hidden_size, 2)
+        self.stgcn2 = FeaStConv(_hidden_size, _latent_size, 2)
+
+        self.encoder_conv1 = BayesianGCNConv(_num_features, _hidden_size)
+        self.encoder_conv2 = BayesianGCNConv(_hidden_size, 2 * _latent_size)
+
+        self.decoder_conv1 = BayesianGCNConv(_latent_size, _hidden_size)
+        self.decoder_conv2 = BayesianGCNConv(_hidden_size, _num_features)
+
+        self.linear = nn.Linear(_latent_size, _out_size)
+        self.relu = nn.ReLU()
+        self.edge_time_predictor = nn.Linear(_combined_edge_features_dim, 1)
+
+        self.reconstruction_loss = nn.MSELoss(reduction='sum')
+
+    def encode(self, x, edge_index, edge_weight):
+        x = nn.functional.relu(self.encoder_conv1(x, edge_index, edge_weight))
+        x = nn.functional.relu(self.encoder_conv2(x, edge_index, edge_weight))
+        return torch.split(x, self._latent_size, dim=-1)
+
+    def reparametrize(self, mu, logvar):
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            return eps * std + mu
+        else:
+            return mu
+
+    def decode(self, z, edge_index, edge_weight):
+        z = nn.functional.relu(self.decoder_conv1(z, edge_index, edge_weight))
+        z = torch.tanh(self.decoder_conv2(z, edge_index, edge_weight))
+        return z
+
+    def forward(self, x, edge_index, edge_weight):
+        x = self.stgcn1(x, edge_index)
+        x = self.relu(x)
+        x = self.stgcn2(x, edge_index)
+        x = self.relu(x)
+        x = self.linear(x)
+
+        mu, logvar = self.encode(x, edge_index, edge_weight)
+        z = self.reparametrize(mu, logvar)
+        recon_x = self.decode(z, edge_index, edge_weight)
+
+        predicted_edge_time = self.predict_edge_time(edge_index, x, edge_weight)
+        return recon_x, mu, logvar, predicted_edge_time
+
+    def loss(self, recon_x, x, mu, logvar):
+        BCE = self.reconstruction_loss(recon_x, x)
+        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        return BCE + KLD
+
+    def predict_edge_time(self, edge_index, x, edge_weight):
+        row, col = edge_index
+        edge_features = torch.abs(x[row] - x[col])
+        combined_edge_features = torch.cat([edge_features, edge_weight], dim=-1)
         return self.edge_time_predictor(combined_edge_features)
 
 
@@ -111,7 +176,7 @@ def train():
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
                 recon_x, mu, logvar, predicted_edge_time = model(x.double(), edge_index, edge_weight)
                 # 计算损失
-                reconstruction_loss = model.bayesian_gcn_vae.loss(recon_x, x, mu, logvar)
+                reconstruction_loss = model.loss(recon_x, x, mu, logvar)
                 travel_time_loss = travel_time_loss_fn(predicted_edge_time, edge_weight[:, 1].reshape(-1, 1))
                 loss = beta_normalized * reconstruction_loss + delta_normalized * travel_time_loss
                 epoch_loss_values.append(loss.item())
@@ -397,10 +462,10 @@ if __name__ == '__main__':
     print("测试集：", test_data_files, end="\n\n")
 
     # 传统模型训练
-    train()
+    # train()
 
     # 生成对抗网络训练
-    # gans_train()
+    gans_train()
 
     # 模型预测
     # predict(generic_model)
