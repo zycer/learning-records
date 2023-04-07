@@ -80,3 +80,7 @@ FeaStConv 的优点在于其具有良好的局部感知能力，同时能够捕�
 
 [3] Velickovic, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., & Bengio, Y. (2018). Graph Attention Networks. In Proceedings of the 6th International Conference on Learning Representations (ICLR).
 时空图卷积网络（STGCN）是用于捕捉交通网络中的时空依赖关系的关键组件。STGCN包括两层FeaStConv层，用于学习输入特征的高级表示。FeaStConv层的计算可以表示为：
+
+
+FeaStConv 是一种特殊的图神经网络 (GNN) 操作，其基本思想是将每个节点的特征与其邻居的特征结合起来，以捕获局部结构信息。FeaStConv 的灵感来源于图神经网络[2]，在交通网络中，FeaStConv 可以提取道路网络中各个路段的时空特征。
+在我们的 BSTVAE 模型中，我们使用了两层 FeaStConv 操作。第一层 FeaStConv 将原始特征数目从 $\text{_num_features}$ 映射到 $\text{_hidden_size}$，而第二层 FeaStConv 则将特征数目从 $\text{_hidden_size}$ 映射到 $\text{_latent_size}$。具体来说，
