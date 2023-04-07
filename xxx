@@ -1,36 +1,81 @@
-假设输入数据为 x，潜在变量为 z。我们希望学习数据的概率分布 P(x)，其中 P(z) 表示潜在变量的先验分布（通常为标准正态分布），P(x|z) 表示给定潜在变量 z 时 x 的条件分布。由于直接计算后验分布 P(z|x) 是困难的，VAE 引入了一个变分分布 Q(z|x) 来近似后验分布。
+FeaStConv 是一种用于图结构数据的卷积操作，其基本思想是将每个节点的特征与其邻居的特征结合起来。FeaStConv 的灵感来源于一种名为图神经网络（GNN）的神经网络结构，其目的是在图上学习节点表征[1]。FeaStConv 的计算过程如下所示：
 
-我们的目标是最大化观测数据的边缘对数似然的下界（ELBO），即：
+首先，我们需要为每个节点收集其邻居的信息。对于节点 $i$，我们可以表示其邻居集合为 $N(i)$，其中 $j \in N(i)$ 表示节点 $j$ 是节点 $i$ 的邻居。
+接下来，我们计算节点 $i$ 的聚合信息 $a_i$，其由节点 $i$ 的特征 $x_i$ 以及其邻居 $j$ 的特征 $x_j$ 组成。通常情况下，我们可以使用加权平均或简单平均来计算 $a_i$。在这里，我们采用加权平均，如下所示：
+a
+i
+=
+∑
+j
+∈
+N
+(
+i
+)
+w
+i
+j
+⋅
+x
+j
+a 
+i
+​	
+ = 
+j∈N(i)
+∑
+​	
+ w 
+ij
+​	
+ ⋅x 
+j
+​	
+ 
+其中，$w_{ij}$ 是边 $(i, j)$ 的权重。
+然后，我们使用一个非线性变换 $f(\cdot)$ 将聚合信息 $a_i$ 转换为新的节点特征。这个非线性变换可以是一个神经网络层，如下所示：
+h
+i
+=
+f
+(
+a
+i
+)
+h 
+i
+​	
+ =f(a 
+i
+​	
+ )
+最后，我们将节点 $i$ 的原始特征 $x_i$ 与新的节点特征 $h_i$ 结合起来，得到最终的节点特征表示：
+x
+i
+′
+=
+x
+i
++
+h
+i
+x 
+i
+′
+​	
+ =x 
+i
+​	
+ +h 
+i
+​	
+ 
+FeaStConv 的优点在于其具有良好的局部感知能力，同时能够捕捉到邻域信息。这使得 FeaStConv 非常适合处理图结构数据，如交通网络行驶时间预测问题中的路网。
 
-ELBO = E_q[log P(x|z)] - D_KL(Q(z|x) || P(z))（1）
+参考文献：
 
-其中 E_q[log P(x|z)] 表示重构误差，D_KL(Q(z|x) || P(z)) 表示编码器输出的分布与先验分布之间的 Kullback-Leibler 散度。
+[1] Kipf, T. N., & Welling, M. (2017). Semi-Supervised Classification with Graph Convolutional Networks. In Proceedings of the 5th International Conference on Learning Representations (ICLR).
 
-在实际操作中，我们通常将编码器和解码器分别用神经网络实现。编码器网络将输入数据 x 映射到概率分布参数 μ(x) 和 logvar(x)，解码器网络将潜在空间的采样 z 映射回数据空间 x'，以最小化重构误差。具体而言，编码器和解码器可以表示为：
+[2] Simonovsky, M., & Komodakis, N. (2017). Dynamic Edge-Conditioned Filters in Convolutional Neural Networks on Graphs. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (pp. 3693-3702).
 
-μ(x), logvar(x) = Encoder(x) （2）
-
-x' = Decoder(z) （3）
-
-为了训练 VAE，我们可以使用随机梯度下降（SGD）或其他优化算法最大化 ELBO。在训练过程中，我们可以采用重参数化技巧（reparameterization trick）进行梯度传播，即通过引入一个独立于参数的噪声变量 ε，将潜在变量 z 表示为：
-
-z = μ(x) + exp(0.5 * logvar(x)) * ε （4）
-
-其中 ε 服从标准正态分布。
-
-通过训练 VAE，我们可以学习到潜在空间中的数据表示，从而提高交通网络行驶时间预测的准确性和鲁棒性。此外，VAE 的生成性能力还可以用于生成新的交通数据样本，从而在一定程度上丰富数据集。
-
-总结起来，在交通网络行驶时间预测任务中，采用 VAE 可以带来更高效的特征学习、更强的预测能力以及异常检测功能。在实际应用中，我们可以根据任务需求对 VAE 的结构进行改进，以适应不同的场景。
-
-
-E_q[log P(x|z)]：重构误差，表示在潜在空间的采样 z 生成原始数据 x 的概率的期望。这部分用于度量编码器和解码器的重构能力。
-D_KL(Q(z|x) || P(z))：KL 散度（Kullback-Leibler Divergence）衡量了从编码器学习到的潜在分布 Q(z|x) 与先验分布 P(z) 的差异。这部分用于度量潜在空间中的表示是否符合我们的先验知识。
-ELBO 目标函数是这两部分的差值，目标是最大化 ELBO。在训练过程中，第一部分鼓励重构能力更好的解码器，而第二部分使得学到的潜在空间表示更符合先验知识。这样，最优化 ELBO 会使得 VAE 学到的表示在重构和符合先验知识之间达到平衡。
-
-
-
-两个时空图卷积层（STGCN），用于捕获时空依赖关系；
-贝叶斯图卷积编码器，用于将输入特征映射到潜在空间的均值和方差；
-重参数化操作，用于引入不确定性；
-贝叶斯图卷积解码器，用于从潜在空间表示重建输入特征；
-边缘行驶时间预测部分，用于预测关键指标。
+[3] Velickovic, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., & Bengio, Y. (2018). Graph Attention Networks. In Proceedings of the 6th International Conference on Learning Representations (ICLR).
