@@ -139,18 +139,38 @@ class GATDiscriminator(nn.Module):
         return _x
 
 
-def train():
+def train(target="deep_ttde"):
     # torch清理GPU专用显存
     if device != "cpu":
         torch.cuda.empty_cache()
     # 定义模型与优化器
-    model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
+    if target == "deep_ttde":
+        model = BayesianGCNVAE(num_features, hidden_size, latent_size).double().to(device)
+        writer_log_name = deep_ttde_model
+    else:
+        model = STGCNBayesianGCNVAE(num_features, hidden_size, latent_size, out_size).double().to(device)
+        writer_log_name = generic_model
+
     optimizer = Adam(model.parameters(), lr=learning_rate)
     travel_time_loss_fn = nn.MSELoss()
-    _model_path = os.path.join(model_save_path, generic_model)
-    writer = SummaryWriter(os.path.join(run_logs, "TTDE Generic Train"))
+    _model_path = os.path.join(model_save_path, deep_ttde_model)
+    writer = SummaryWriter(os.path.join(run_logs, "TTDE train "+writer_log_name))
+    train_log_path = os.path.join(train_logs, writer_log_name + ".log")
+    x_coordinate_log = os.path.join(train_logs, "deep_ttde_x_coordinate.log")
+
+    train_file_num = -1
+    train_epoch_num = -1
     x_coordinate = 0
-    train_file_num = 0
+
+    if os.path.exists(train_log_path):
+        with open(train_log_path, "r") as f:
+            a, b = f.read().split(",")
+            train_file_num = int(a)
+            train_epoch_num = 0 if int(b) == num_epochs - 1 else int(b)
+
+    if os.path.exists(x_coordinate_log):
+        with open(x_coordinate_log, "r") as f:
+            x_coordinate = int(f.read())
 
     if os.path.exists(_model_path):
         model.load_state_dict(torch.load(_model_path))
@@ -158,16 +178,19 @@ def train():
 
     model.train()
     print("Start model training...")
-    train_log_path = os.path.join(train_logs, "generic_train_log.log")
-    if os.path.exists(train_log_path):
-        with open(train_log_path, "r") as f:
-            train_file_num = int(f.read())
 
     for num, train_data_file in enumerate(train_data_files):
         if num <= train_file_num:
             continue
+
+        train_file_num = -1
+
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, train_data_file), batch_size=3)
         for epoch in range(num_epochs):
+            if epoch <= train_epoch_num:
+                continue
+
+            train_epoch_num = -1
             optimizer.zero_grad()
             epoch_loss_values = []
             for batch in tqdm.tqdm(snapshot_graphs_loader):
@@ -184,16 +207,18 @@ def train():
                 # 梯度裁剪
                 clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
-                writer.add_scalar("Loss/train", loss.item(), x_coordinate)
-                x_coordinate += 1
 
             epoch_loss = sum(epoch_loss_values) / len(epoch_loss_values)
+            writer.add_scalar("Loss/train", epoch_loss, x_coordinate)
+            x_coordinate += 1
+            with open(x_coordinate_log, "w") as fff:
+                fff.write(str(x_coordinate))
             print(f"-data file: {train_data_file}, Epoch: {epoch + 1}, Loss: {epoch_loss}\n")
             time.sleep(0.015)
 
-        torch.save(model.state_dict(), _model_path)
-        with open(train_log_path, "w") as ff:
-            ff.write(str(num))
+            torch.save(model.state_dict(), _model_path)
+            with open(train_log_path, "w") as ff:
+                ff.write(f"{num},{epoch}")
 
     writer.close()
 
@@ -423,7 +448,7 @@ if __name__ == '__main__':
     out_size = 7
     combined_edge_features_dim = 9  # 组合边特征维度
 
-    num_epochs = 5
+    num_epochs = 3
     learning_rate = 0.01
     alpha = 1.0  # 生成器的基本损失权重
     beta = 1.0  # 重建损失权重
@@ -438,12 +463,13 @@ if __name__ == '__main__':
     delta_normalized = delta / total_weight
 
     # 保存模型名称
-    model_save_path = "saved_models_new"
-    run_logs = "run_logs_new"
-    train_logs = "train_logs_new"
-    gans_generator_model = "gans_generator_new.pth"
-    gans_discriminator_model = "gans_discriminator_new.pth"
+    model_save_path = "saved_models"
+    run_logs = "run_logs"
+    train_logs = "train_logs"
+    gans_generator_model = "gans_generator.pth"
+    gans_discriminator_model = "gans_discriminator.pth"
     generic_model = "generic_model.pth"
+    deep_ttde_model = "deep_ttde.pth"
 
     # 定义设备
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
@@ -462,10 +488,10 @@ if __name__ == '__main__':
     print("测试集：", test_data_files, end="\n\n")
 
     # 传统模型训练
-    # train()
+    train()
 
     # 生成对抗网络训练
-    gans_train()
+    # gans_train()
 
     # 模型预测
     # predict(generic_model)

@@ -55,7 +55,7 @@ class BayesianGCNConv(MessagePassing):
 
 
 class BayesianGCNVAE(nn.Module):
-    def __init__(self, num_features, hidden_size, latent_size):
+    def __init__(self, num_features, hidden_size, latent_size, _combined_edge_features_dim=9):
         super(BayesianGCNVAE, self).__init__()
 
         self.num_features = num_features
@@ -68,6 +68,7 @@ class BayesianGCNVAE(nn.Module):
         self.conv4 = BayesianGCNConv(hidden_size, num_features)
 
         self.reconstruction_loss = nn.MSELoss(reduction='sum')
+        self.edge_time_predictor = nn.Linear(_combined_edge_features_dim, 1)
 
     def encode(self, x, edge_index, edge_weight):
         x = nn.functional.relu(self.conv1(x, edge_index, edge_weight))
@@ -90,12 +91,19 @@ class BayesianGCNVAE(nn.Module):
     def forward(self, x, edge_index, edge_weight):
         mu, logvar = self.encode(x, edge_index, edge_weight)
         z = self.reparametrize(mu, logvar)
-        return self.decode(z, edge_index, edge_weight), mu, logvar
+        predicted_edge_time = self.predict_edge_time(edge_index, x, edge_weight)
+        return self.decode(z, edge_index, edge_weight), mu, logvar, predicted_edge_time
 
     def loss(self, recon_x, x, mu, logvar):
         BCE = self.reconstruction_loss(recon_x, x)
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return BCE + KLD
+
+    def predict_edge_time(self, edge_index, x, edge_weight):
+        row, col = edge_index
+        edge_features = torch.abs(x[row] - x[col])
+        combined_edge_features = torch.cat([edge_features, edge_weight], dim=-1)
+        return self.edge_time_predictor(combined_edge_features)
 
 
 def z_score(raw_data):
