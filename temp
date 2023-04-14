@@ -1,0 +1,17 @@
+import torch
+from torch.utils.tensorboard import SummaryWriter
+
+# 创建一个SummaryWriter实例
+writer = SummaryWriter()
+
+# 模拟生成一些数据
+for epoch in range(100):
+    loss1 = torch.rand(1)
+    loss2 = torch.rand(1)
+
+    # 使用相同的标签（tag）记录两条线的数据
+    writer.add_scalar("Loss/train", loss1, epoch)
+    writer.add_scalar("Loss/train", loss2, epoch)
+
+# 关闭SummaryWriter
+writer.close()
