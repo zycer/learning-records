@@ -1,86 +1,75 @@
-FeaStConv 是一种用于图结构数据的卷积操作，其基本思想是将每个节点的特征与其邻居的特征结合起来。FeaStConv 的灵感来源于一种名为图神经网络（GNN）的神经网络结构，其目的是在图上学习节点表征[1]。FeaStConv 的计算过程如下所示：
+以下是一个基于 Bootstrap v5 的漂亮的主页的示例代码，其中包括了 CSS 样式和 JavaScript：
 
-首先，我们需要为每个节点收集其邻居的信息。对于节点 $i$，我们可以表示其邻居集合为 $N(i)$，其中 $j \in N(i)$ 表示节点 $j$ 是节点 $i$ 的邻居。
-接下来，我们计算节点 $i$ 的聚合信息 $a_i$，其由节点 $i$ 的特征 $x_i$ 以及其邻居 $j$ 的特征 $x_j$ 组成。通常情况下，我们可以使用加权平均或简单平均来计算 $a_i$。在这里，我们采用加权平均，如下所示：
-a
-i
-=
-∑
-j
-∈
-N
-(
-i
-)
-w
-i
-j
-⋅
-x
-j
-a 
-i
-​	
- = 
-j∈N(i)
-∑
-​	
- w 
-ij
-​	
- ⋅x 
-j
-​	
- 
-其中，$w_{ij}$ 是边 $(i, j)$ 的权重。
-然后，我们使用一个非线性变换 $f(\cdot)$ 将聚合信息 $a_i$ 转换为新的节点特征。这个非线性变换可以是一个神经网络层，如下所示：
-h
-i
-=
-f
-(
-a
-i
-)
-h 
-i
-​	
- =f(a 
-i
-​	
- )
-最后，我们将节点 $i$ 的原始特征 $x_i$ 与新的节点特征 $h_i$ 结合起来，得到最终的节点特征表示：
-x
-i
-′
-=
-x
-i
-+
-h
-i
-x 
-i
-′
-​	
- =x 
-i
-​	
- +h 
-i
-​	
- 
-FeaStConv 的优点在于其具有良好的局部感知能力，同时能够捕捉到邻域信息。这使得 FeaStConv 非常适合处理图结构数据，如交通网络行驶时间预测问题中的路网。
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TTDE | 主页</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 引入 Bootstrap 的 CSS 文件 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" integrity="sha384-1+HYJMf7VvKX9xW8Vq3T3Pn7lJWC6yKgSf2Q6Q1zYI1U6O4W8K0U6BYHg6pUJmEj" crossorigin="anonymous">
+  <!-- 自定义 CSS 样式 -->
+  <style>
+    body {
+      background-image: url("https://picsum.photos/1920/1080");
+      background-size: cover;
+      background-position: center;
+    }
+    h1 {
+      font-weight: bold;
+      font-size: 3rem;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    p {
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <!-- 导航条 -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">TTDE</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">主页</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">路网匹配</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">TTDE</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">任务</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
 
-参考文献：
+  <!-- 页面内容 -->
+  <div class="container-fluid">
+    <div class="row justify-content-center align-items-center" style="height: 100vh;">
+      <div class="col-md-8 text-center">
+        <h1>基于BSTGCN的城市道路行驶时间预测系统</h1>
+        <p>这是一段描述系统的文本。</p>
+        <p>这是另一段描述系统的文本。</p>
+      </div>
+    </div>
+  </div>
 
-[1] Kipf, T. N., & Welling, M. (2017). Semi-Supervised Classification with Graph Convolutional Networks. In Proceedings of the 5th International Conference on Learning Representations (ICLR).
+  <!-- 引入 Bootstrap 的 JavaScript 文件 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-8+ZSQwGKxQlZfVhZt8Lz7V9+9LZJ7VWQ2QBl56qVn3+DZvJFON1G8q6UqFuPzefp" crossorigin="anonymous"></script>
+</body>
+</html>
+```
 
-[2] Simonovsky, M., & Komodakis, N. (2017). Dynamic Edge-Conditioned Filters in Convolutional Neural Networks on Graphs. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (pp. 3693-3702).
-
-[3] Velickovic, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., & Bengio, Y. (2018). Graph Attention Networks. In Proceedings of the 6th International Conference on Learning Representations (ICLR).
-时空图卷积网络（STGCN）是用于捕捉交通网络中的时空依赖关系的关键组件。STGCN包括两层FeaStConv层，用于学习输入特征的高级表示。FeaStConv层的计算可以表示为：
-
-
-FeaStConv 是一种特殊的图神经网络 (GNN) 操作，其基本思想是将每个节点的特征与其邻居的特征结合起来，以捕获局部结构信息。FeaStConv 的灵感来源于图神经网络[2]，在交通网络中，FeaStConv 可以提取道路网络中各个路段的时空特征。
-在我们的 BSTVAE 模型中，我们使用了两层 FeaStConv 操作。第一层 FeaStConv 将原始特征数目从 $\text{_num_features}$ 映射到 $\text{_hidden_size}$，而第二层 FeaStConv 则将特征数目从 $\text{_hidden_size}$ 映射到 $\text{_latent_size}$。具体来说，
+在这个示例代码中，我使用了 Bootstrap 的导航条组件和栅格系统来创建导航条和页面内容。同时，我也自定义了一些 CSS 样式，例如给页面添加了背景图片，并使用了文本阴影来增强文本的可读性。
