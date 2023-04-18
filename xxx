@@ -1,44 +1,18 @@
+map.on('draw:created', function (e) {
+    drawnItems.addLayer(e.layer);
 
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Map Matching</title>
-    <!-- 引入Leaflet库 -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-</head>
-<body>
-    <div id="map" style="width: 100%; height: 600px;"></div>
-    <script>
-        var map = L.map('map').setView([51.505, -0.09], 13);
+    // 获取矩形区域的边界框
+    var bbox = e.layer.getBounds().toBBoxString();
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        var drawnItems = new L.FeatureGroup();
-        map.addLayer(drawnItems);
-
-        var drawControl = new L.Control.Draw({
-            draw: {
-                polygon: false,
-                polyline: false,
-                circle: false,
-                circlemarker: false,
-                marker: false
-            },
-            edit: {
-                featureGroup: drawnItems,
-                remove: true
+    // 将边界框发送到后端
+    fetch('/download_osm_data?bbox=' + bbox)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+            } else {
+                alert('Error: ' + data.message);
             }
         });
-        map.addControl(drawControl);
+});
 
-        map.on('draw:created', function (e) {
-            drawnItems.addLayer(e.layer);
-        });
-
-    </script>
-</body>
-</html>
