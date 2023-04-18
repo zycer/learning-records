@@ -1,18 +1,29 @@
-map.on('draw:created', function (e) {
-    drawnItems.addLayer(e.layer);
+import requests
+from django.http import JsonResponse
 
-    // 获取矩形区域的边界框
-    var bbox = e.layer.getBounds().toBBoxString();
+def download_osm_data(request):
+    bbox = request.GET.get('bbox', '')
 
-    // 将边界框发送到后端
-    fetch('/download_osm_data?bbox=' + bbox)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(data.message);
-            } else {
-                alert('Error: ' + data.message);
-            }
-        });
-});
+    if bbox:
+        # 根据边界框下载OSM数据
+        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_query = f"""
+            [out:xml];
+            (
+                way["highway"]({bbox});
+                rel["type"="route"]({bbox});
+            );
+            out meta;
+        """
 
+        response = requests.get(overpass_url, params={'data': overpass_query})
+
+        if response.status_code == 200:
+            with open('osm_data.osm', 'wb') as osm_file:
+                osm_file.write(response.content)
+
+            return JsonResponse({'status': 'success', 'message': 'OSM data downloaded successfully.'})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Failed to download OSM data.'})
+
+    return JsonResponse({'status': 'error', 'message': 'No bounding box provided.'})
