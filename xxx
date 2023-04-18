@@ -1,79 +1,63 @@
-以下是一个基于 Bootstrap v5 的漂亮的主页的示例代码，其中包括了 CSS 样式和 JavaScript：
+<!doctype html>
+<html lang="en">
 
-```html
-<!DOCTYPE html>
-<html>
 <head>
-  <title>TTDE | 主页</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- 引入 Bootstrap 的 CSS 文件 -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" integrity="sha384-1+HYJMf7VvKX9xW8Vq3T3Pn7lJWC6yKgSf2Q6Q1zYI1U6O4W8K0U6BYHg6pUJmEj" crossorigin="anonymous">
-  <!-- 自定义 CSS 样式 -->
-  <style>
-    body {
-      background-image: url("https://picsum.photos/1920/1080");
-      background-size: cover;
-      background-position: center;
-    }
-    h1 {
-      font-weight: bold;
-      font-size: 3rem;
-      color: white;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    }
-    p {
-      color: white;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    }
-    .nav-link:hover,
-    .nav-link:focus,
-    .nav-link:active,
-    .nav-link.active {
-      background-color: #6c757d;
-      color: white;
-    }
-  </style>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .nav-item:hover {
+            background-color: #007bff;
+        }
+
+        .nav-item.active {
+            background-color: #0069d9;
+        }
+
+        .bg-custom {
+            background-color: #e9ecef;
+        }
+    </style>
+
+    <title>基于BSTGCN的道路行驶时间预测模型</title>
 </head>
+
 <body>
-  <!-- 导航条 -->
-  <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <a class="navbar-brand" href="#">TTDE</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav flex-column">
-          <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="#">主页</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">路网匹配</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">TTDE</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">任务</a>
-          </li>
-        </ul>
-      </div>
+        <div class="row">
+            <div class="col-2 bg-custom min-vh-100">
+                <ul class="nav flex-column mt-3">
+                    <li class="nav-item py-2 px-3">
+                        <a class="nav-link active" href="#">首页</a>
+                    </li>
+                    <li class="nav-item py-2 px-3">
+                        <a class="nav-link" href="#">地图匹配</a>
+                    </li>
+                    <li class="nav-item py-2 px-3">
+                        <a class="nav-link" href="#">路网预测</a>
+                    </li>
+                    <li class="nav-item py-2 px-3">
+                        <a class="nav-link" href="#">任务</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-10 bg-light">
+                <div class="container mt-5">
+                    <h1>基于BSTGCN的道路行驶时间预测模型</h1>
+                    <p class="lead">本系统利用基于BSTGCN的道路行驶时间预测模型，提供实时道路行驶时间预测。通过使用先进的深度学习技术，我们的模型能够准确预测城市道路网络的交通状况，为用户提供更加高效的出行建议。</p>
+                </div>
+            </div>
+        </div>
     </div>
-  </nav>
-  
-  <!-- 内容 -->
-  <div class="container-fluid text-center py-5">
-    <h1>基于 BSTGCN 的城市道路行驶时间预测系统</h1>
-    <p>欢迎使用 TTDE，我们的目标是为您提供最准确的城市道路行驶时间预测服务。</p>
-  </div>
 
-  <!-- 引入 Bootstrap 的 JavaScript 文件 -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-+4q3zLhE0y7OovM5zv9bWYtFh5d7i5Px5zC8eD5gQ2Qj73m1FJv/8nY+JzLZfLh" crossorigin="anonymous"></script>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
 </body>
+
 </html>
-```
-
-在这个示例中，我们使用了 Bootstrap 的 `navbar` 组件来创建了一个竖型导航条，并使用了 `bg-light` 类来设置背景颜色。我们还定义了一些自定义的 CSS 样式，以使页面更加美观。在内容部分，我们使用了一个带有背景图和标题的容器，以呈现页面的主要内容。
-
-请注意，我们在 HTML 中引入了 Bootstrap 的 CSS 和 JavaScript 文件，以便正确渲染和交互 Bootstrap 组件。如果您想要在本地使用 Bootstrap，您需要从官方网站下载这些文件并将它们放到您的项目中。
