@@ -1,8 +1,19 @@
 import requests
 from django.http import JsonResponse
+from geopy.geocoders import Nominatim
 
 def download_osm_data(request):
+    area_name = request.GET.get('area_name', '')
     bbox = request.GET.get('bbox', '')
+
+    if area_name:
+        geolocator = Nominatim(user_agent="your_app_name")
+        location = geolocator.geocode(area_name, timeout=10)
+
+        if location:
+            bbox = ','.join(map(str, [location.raw['boundingbox'][2], location.raw['boundingbox'][0], location.raw['boundingbox'][3], location.raw['boundingbox'][1]]))
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Failed to find the bounding box for the given area name.'})
 
     if bbox:
         # 根据边界框下载OSM数据
@@ -26,4 +37,4 @@ def download_osm_data(request):
         else:
             return JsonResponse({'status': 'error', 'message': 'Failed to download OSM data.'})
 
-    return JsonResponse({'status': 'error', 'message': 'No bounding box provided.'})
+    return JsonResponse({'status': 'error', 'message': 'No area name or bounding box provided.'})
