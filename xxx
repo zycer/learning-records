@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <style>
         #map {
             height: 500px;
@@ -18,6 +19,9 @@
 <body>
     <div class="container">
         <h1 class="my-3">Map Matching</h1>
+        <div class="mb-3">
+            <input type="text" id="search" class="form-control" placeholder="Search location">
+        </div>
         <div id="map" class="mb-3"></div>
         <button id="download-data" class="btn btn-primary" disabled>Download Data</button>
     </div>
@@ -26,6 +30,22 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
+
+        var geocoder = L.Control.Geocoder.nominatim();
+        var searchControl = L.Control.geocoder({
+            geocoder: geocoder,
+            position: 'topleft',
+            showResultIcons: true
+        }).addTo(map);
+
+        document.getElementById('search').addEventListener('keyup', function (event) {
+            if (event.key === 'Enter') {
+                geocoder.geocode(this.value, function(results) {
+                    var bbox = results[0].bbox;
+                    map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
+                });
+            }
+        });
 
         var rectangle = null;
         map.on('mousedown', function (e) {
@@ -47,27 +67,49 @@
         }
 
         document.getElementById('download-data').addEventListener('click', function () {
-            downloadData(rectangle.getBounds());
+            var bounds = rectangle.getBounds();
+            var data = {
+                "south": bounds.getSouth(),
+                "north": bounds.getNorth(),
+                "west": bounds.getWest(),
+                "east": bounds.getEast()
+            };
+            
+            fetch('/download_data/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Data downloaded successfully.');
+                } else {
+                    alert('Error occurred while downloading data.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error occurred while downloading data.');
+            });
         });
 
-        function downloadData(bounds) {
-            var south = bounds.getSouth();
-            var west = bounds.getWest();
-            var north = bounds.getNorth();
-            var east = bounds.getEast();
-            var url = `/download_data/?south=${south}&west=${west}&north=${north}&east=${east}`;
-
-            fetch(url)
-                .then(response => {
-                    if (response.ok) {
-                        alert('OSM and GPS data downloaded and saved to disk.');
-                    } else {
-                        throw new Error('Failed to download data');
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
                     }
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                });
+                }
+            }
+            return cookieValue;
         }
     </script>
 </body>
