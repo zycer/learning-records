@@ -1,63 +1,44 @@
-<!doctype html>
-<html lang="en">
 
+<!DOCTYPE html>
+<html>
 <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .nav-item:hover {
-            background-color: #007bff;
-        }
-
-        .nav-item.active {
-            background-color: #0069d9;
-        }
-
-        .bg-custom {
-            background-color: #e9ecef;
-        }
-    </style>
-
-    <title>基于BSTGCN的道路行驶时间预测模型</title>
+    <meta charset="UTF-8">
+    <title>Map Matching</title>
+    <!-- 引入Leaflet库 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 </head>
-
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-2 bg-custom min-vh-100">
-                <ul class="nav flex-column mt-3">
-                    <li class="nav-item py-2 px-3">
-                        <a class="nav-link active" href="#">首页</a>
-                    </li>
-                    <li class="nav-item py-2 px-3">
-                        <a class="nav-link" href="#">地图匹配</a>
-                    </li>
-                    <li class="nav-item py-2 px-3">
-                        <a class="nav-link" href="#">路网预测</a>
-                    </li>
-                    <li class="nav-item py-2 px-3">
-                        <a class="nav-link" href="#">任务</a>
-                    </li>
-                </ul>
-            </div>
-            <div class="col-10 bg-light">
-                <div class="container mt-5">
-                    <h1>基于BSTGCN的道路行驶时间预测模型</h1>
-                    <p class="lead">本系统利用基于BSTGCN的道路行驶时间预测模型，提供实时道路行驶时间预测。通过使用先进的深度学习技术，我们的模型能够准确预测城市道路网络的交通状况，为用户提供更加高效的出行建议。</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div id="map" style="width: 100%; height: 600px;"></div>
+    <script>
+        var map = L.map('map').setView([51.505, -0.09], 13);
 
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        var drawControl = new L.Control.Draw({
+            draw: {
+                polygon: false,
+                polyline: false,
+                circle: false,
+                circlemarker: false,
+                marker: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+        map.addControl(drawControl);
+
+        map.on('draw:created', function (e) {
+            drawnItems.addLayer(e.layer);
+        });
+
+    </script>
 </body>
-
 </html>
