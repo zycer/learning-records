@@ -1,40 +1,20 @@
-import requests
-from django.http import JsonResponse
-from geopy.geocoders import Nominatim
+<!-- 添加一个输入框供用户输入区域名称 -->
+<div class="form-group">
+    <label for="area-name">Area name:</label>
+    <input type="text" class="form-control" id="area-name" placeholder="Enter area name">
+</div>
 
-def download_osm_data(request):
-    area_name = request.GET.get('area_name', '')
-    bbox = request.GET.get('bbox', '')
 
-    if area_name:
-        geolocator = Nominatim(user_agent="your_app_name")
-        location = geolocator.geocode(area_name, timeout=10)
-
-        if location:
-            bbox = ','.join(map(str, [location.raw['boundingbox'][2], location.raw['boundingbox'][0], location.raw['boundingbox'][3], location.raw['boundingbox'][1]]))
-        else:
-            return JsonResponse({'status': 'error', 'message': 'Failed to find the bounding box for the given area name.'})
-
-    if bbox:
-        # 根据边界框下载OSM数据
-        overpass_url = "http://overpass-api.de/api/interpreter"
-        overpass_query = f"""
-            [out:xml];
-            (
-                way["highway"]({bbox});
-                rel["type"="route"]({bbox});
-            );
-            out meta;
-        """
-
-        response = requests.get(overpass_url, params={'data': overpass_query})
-
-        if response.status_code == 200:
-            with open('osm_data.osm', 'wb') as osm_file:
-                osm_file.write(response.content)
-
-            return JsonResponse({'status': 'success', 'message': 'OSM data downloaded successfully.'})
-        else:
-            return JsonResponse({'status': 'error', 'message': 'Failed to download OSM data.'})
-
-    return JsonResponse({'status': 'error', 'message': 'No area name or bounding box provided.'})
+document.getElementById('area-name').addEventListener('input', function () {
+    var areaName = this.value;
+    if (areaName) {
+        var geocoder = new L.Control.Geocoder.Nominatim();
+        geocoder.geocode(areaName, function(results) {
+            if (results && results.length > 0) {
+                var bbox = results[0].bbox;
+                var bounds = L.latLngBounds(L.latLng(bbox[0], bbox[2]), L.latLng(bbox[1], bbox[3]));
+                map.fitBounds(bounds);
+            }
+        });
+    }
+});
