@@ -37,3 +37,27 @@ def download_data(request):
         json.dump(gps_data, gps_file)
 
     return HttpResponse('OSM and GPS data downloaded and saved to disk.')
+
+
+
+
+
+function downloadData(bounds) {
+    var south = bounds.getSouth();
+    var west = bounds.getWest();
+    var north = bounds.getNorth();
+    var east = bounds.getEast();
+    var url = `/download_data/?south=${south}&west=${west}&north=${north}&east=${east}`;
+
+    fetch(url)
+        .then(response => {
+            if (response.ok) {
+                alert('OSM and GPS data downloaded and saved to disk.');
+            } else {
+                throw new Error('Failed to download data');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+        });
+}
