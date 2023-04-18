@@ -1,20 +1,39 @@
-<!-- 添加一个输入框供用户输入区域名称 -->
-<div class="form-group">
-    <label for="area-name">Area name:</label>
-    <input type="text" class="form-control" id="area-name" placeholder="Enter area name">
-</div>
+# views.py
+import requests
+import json
+from django.http import HttpResponse
 
+def download_data(request):
+    south = request.GET.get('south')
+    west = request.GET.get('west')
+    north = request.GET.get('north')
+    east = request.GET.get('east')
 
-document.getElementById('area-name').addEventListener('input', function () {
-    var areaName = this.value;
-    if (areaName) {
-        var geocoder = new L.Control.Geocoder.Nominatim();
-        geocoder.geocode(areaName, function(results) {
-            if (results && results.length > 0) {
-                var bbox = results[0].bbox;
-                var bounds = L.latLngBounds(L.latLng(bbox[0], bbox[2]), L.latLng(bbox[1], bbox[3]));
-                map.fitBounds(bounds);
-            }
-        });
-    }
-});
+    # 下载 OSM 数据
+    osm_url = f'http://www.overpass-api.de/api/xapi?*[bbox={west},{south},{east},{north}]'
+    osm_response = requests.get(osm_url)
+    with open('osm_data.osm', 'wb') as osm_file:
+        osm_file.write(osm_response.content)
+
+    # 下载 GPS 数据
+    query = f"""
+        [out:json][timeout:25];
+        (
+            node["highway"="traffic_signals"]({south},{west},{north},{east});
+            way["highway"]["highway"!~"^(footway|path|bridleway|steps|corridor|platform|raceway)$"](around:100)({south},{west},{north},{east});
+            relation["type"="route"]["route"="road"](around:100)({south},{west},{north},{east});
+        );
+        out body;
+        >;
+        out skel qt;
+    """.strip().replace('\n', ' ')
+
+    gps_url = f'https://overpass-api.de/api/interpreter?data={query}'
+    gps_response = requests.get(gps_url)
+    gps_data = gps_response.json()
+
+    # 将数据保存到磁盘上
+    with open('gps_data.json', 'w') as gps_file:
+        json.dump(gps_data, gps_file)
+
+    return HttpResponse('OSM and GPS data downloaded and saved to disk.')
