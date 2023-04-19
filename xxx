@@ -1,116 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map Matching</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    <style>
-        #map {
-            height: 500px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="my-3">Map Matching</h1>
-        <div class="mb-3">
-            <input type="text" id="search" class="form-control" placeholder="Search location">
-        </div>
-        <div id="map" class="mb-3"></div>
-        <button id="download-data" class="btn btn-primary" disabled>Download Data</button>
-    </div>
-    <script>
-        var map = L.map('map').setView([39.9042, 116.4074], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+overpass_url = "http://overpass-api.de/api/interpreter"
+    query = f"""
+        [out:csv(::id,::lat,::lon,::timestamp;true;";")];
+        [bbox:{south},{west},{north},{east}];
+        [date:{start_time}];
+        node["vehicle"="car"];
+        out body;
+        >;
+        out skel qt;
+        [date:{end_time}];
+        node["vehicle"="car"];
+        out body;
+        >;
+        out skel qt;
+    """
 
-        var geocoder = L.Control.Geocoder.nominatim();
-        var searchControl = L.Control.geocoder({
-            geocoder: geocoder,
-            position: 'topleft',
-            showResultIcons: true
-        }).addTo(map);
+    response = requests.get(overpass_url, params={'data': query})
+    response.raise_for_status()
 
-        document.getElementById('search').addEventListener('keyup', function (event) {
-            if (event.key === 'Enter') {
-                geocoder.geocode(this.value, function(results) {
-                    var bbox = results[0].bbox;
-                    map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
-                });
-            }
-        });
-
-        var rectangle = null;
-        map.on('mousedown', function (e) {
-            if (rectangle) {
-                map.removeLayer(rectangle);
-            }
-            rectangle = L.rectangle([[e.latlng.lat, e.latlng.lng], [e.latlng.lat, e.latlng.lng]], {color: 'red'}).addTo(map);
-            map.on('mousemove', onMouseMove);
-            map.once('mouseup', onMouseUp);
-        });
-
-        function onMouseMove(e) {
-            rectangle.setBounds([rectangle.getBounds().getSouthWest(), e.latlng]);
-        }
-
-        function onMouseUp() {
-            map.off('mousemove', onMouseMove);
-            document.getElementById('download-data').disabled = false;
-        }
-
-        document.getElementById('download-data').addEventListener('click', function () {
-            var bounds = rectangle.getBounds();
-            var data = {
-                "south": bounds.getSouth(),
-                "north": bounds.getNorth(),
-                "west": bounds.getWest(),
-                "east": bounds.getEast()
-            };
-            
-            fetch('/download_data/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Data downloaded successfully.');
-                } else {
-                    alert('Error occurred while downloading data.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error occurred while downloading data.');
-            });
-        });
-
-        function getCookie(name) {
-            var cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {
-                    var cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-    </script>
-</body>
-</html>
+    with io.StringIO(response.text) as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            print(row)
