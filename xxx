@@ -1,23 +1,57 @@
-overpass_url = "http://overpass-api.de/api/interpreter"
-    query = f"""
-        [out:csv(::id,::lat,::lon,::timestamp;true;";")];
-        [bbox:{south},{west},{north},{east}];
-        [date:{start_time}];
-        node["vehicle"="car"];
-        out body;
-        >;
-        out skel qt;
-        [date:{end_time}];
-        node["vehicle"="car"];
-        out body;
-        >;
-        out skel qt;
-    """
+import osmnx as ox
+import networkx as nx
+import pandas as pd
+from shapely.geometry import Point
+from collections import defaultdict
 
-    response = requests.get(overpass_url, params={'data': query})
-    response.raise_for_status()
+def read_osm_file(file_path):
+    graph = ox.graph_from_xml(file_path, bidirectional=True)
+    graph_proj = ox.project_graph(graph)
+    return graph_proj
 
-    with io.StringIO(response.text) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            print(row)
+def read_gps_csv_file(file_path):
+    df = pd.read_csv(file_path)
+    return df
+
+def match_gps_to_roads(graph, gps_data):
+    matched_data = defaultdict(list)
+
+    for index, row in gps_data.iterrows():
+        timestamp = row['timestamp']
+        lon = row['lon']
+        lat = row['lat']
+
+        point = Point(lat, lon)
+        nearest_node = ox.distance.nearest_nodes(graph, X=[point.y], Y=[point.x])[0]
+        road_id = graph[nearest_node]
+
+        speed = row['speed']
+        matched_data[road_id].append((timestamp, speed))
+
+    return matched_data
+
+def main():
+    osm_file = 'path/to/your/osm/file.osm'
+    gps_csv_file = 'path/to/your/gps_data.csv'
+
+    graph = read_osm_file(osm_file)
+    gps_data = read_gps_csv_file(gps_csv_file)
+
+    matched_data = match_gps_to_roads(graph, gps_data)
+
+    # 将匹配到的数据存储到字典中，键为时间戳，值为速度
+    result = defaultdict(list)
+    for road_id, data in matched_data.items():
+        for timestamp, speed in data:
+            result[timestamp].append(speed)
+
+    # 计算每个时间戳的平均速度
+    avg_speeds = {}
+    for timestamp, speeds in result.items():
+        avg_speed = sum(speeds) / len(speeds)
+        avg_speeds[timestamp] = avg_speed
+
+    print(avg_speeds)
+
+if __name__ == '__main__':
+    main()
