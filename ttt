@@ -1,9 +1,20 @@
-本章我们详细介绍了原型系统的实现过程，包括系统的需求分析、总体架构设计以及关键模块的设计与实现。首先，我们对基于BSTGCN模型和交互式地图匹配方法的原型系统进行了需求分析，明确了系统的目标和功能。接着，我们根据需求分析，设计了基于Django Web框架的MTV架构，并对整个系统的组成部分进行了说明。
+import torch
+import onnx
+import keras2onnx
+from keras.utils.vis_utils import plot_model
+from keras import backend as K
 
-在关键模块的设计与实现部分，我们重点关注了数据处理模块、地图匹配模块以及行驶时间预测模型的训练与预测模块。数据处理模块负责调用Overpass API下载所选区域的OSM文件，获取公开交通数据接口的GPS历史轨迹数据，并对数据进行预处理。地图匹配模块采用了基于Web墨卡托的交互式地图匹配方法，以提高匹配准确性。行驶时间预测模型的训练与预测模块实现了论文第四章提出的基于贝叶斯深度图学习的城市道路行驶时间预测模型，以实现准确且实用的行驶时间预测。
+# 加载 PyTorch 模型
+checkpoint = torch.load("saved_models/gen.tar")
+model = checkpoint["model"]
 
-通过本章的详细阐述，我们展示了原型系统的实现过程，为读者提供了一个完整、清晰的原型系统开发过程，有助于理解整个系统的设计与实现。本原型系统的实现为未来在实际场景中应用BSTGCN模型和交互式地图匹配方法提供了一个实用的参考。通过这一原型系统，我们能够对城市道路行驶时间进行预测，并为实际交通管理和规划提供依据。
+# 将 PyTorch 模型转换为 ONNX 模型
+dummy_input = torch.randn(1, 3, 224, 224, device='cpu')
+onnx_model = onnx.export(model, dummy_input, 'model.onnx', export_params=True)
 
-在未来的研究中，我们将进一步优化原型系统的性能，例如通过引入更多的实时交通数据和动态地图匹配技术，以提高系统的实时性和准确性。此外，我们还将探讨将原型系统与其他智能交通系统或车联网应用进行集成，为智能城市建设和智能出行提供更全面的解决方案。
+# 将 ONNX 模型转换为 Keras 模型
+K.set_image_data_format('channels_first')
+keras_model = keras2onnx.onnx_to_keras(onnx_model, input_names=['input'], input_shapes=(1, 3, 224, 224), name_policy='shortest')
 
-总之，本章通过详细阐述原型系统的实现过程，为实际应用提供了一个可行的参考。我们相信，随着相关技术的不断发展和优化，原型系统在智能交通领域的应用前景将更加广阔。
+# 绘制 Keras 模型结构图
+plot_model(keras_model, to_file='model.png', show_shapes=True, show_layer_names=True)
