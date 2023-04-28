@@ -2,9 +2,10 @@ import torch
 import onnx
 import keras2onnx
 from keras.utils.vis_utils import plot_model
+from keras import backend as K
 
 # 加载 PyTorch 模型
-checkpoint = torch.load("saved_models\\gen.tar")
+checkpoint = torch.load("saved_models/gen.tar")
 model = checkpoint["model"]
 
 # 将 PyTorch 模型转换为 ONNX 模型
@@ -12,11 +13,8 @@ dummy_input = torch.randn(1, 3, 224, 224, device='cpu')
 onnx_model = onnx.export(model, dummy_input, 'model.onnx', export_params=True)
 
 # 将 ONNX 模型转换为 Keras 模型
-keras_model = keras2onnx.convert_model(onnx_model, 'model')
+K.set_image_data_format('channels_first')
+keras_model = keras2onnx.onnx_to_keras(onnx_model, input_names=['input'], input_shapes=(1, 3, 224, 224), name_policy='shortest')
 
 # 绘制 Keras 模型结构图
 plot_model(keras_model, to_file='model.png', show_shapes=True, show_layer_names=True)
-
-
-
-AttributeError: module 'tensorflow.python.keras' has no attribute 'applications'
