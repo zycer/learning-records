@@ -69,9 +69,9 @@ def mean_distance_error_new():
     plt.figure(dpi=240)
     plt.title("mean distance error")
     plt.ylabel("distance error(m)")
-    plt.bar(x_list, data[0], bar_width, align="center", label="Branch", alpha=0.5)
-    plt.bar(x_list + bar_width, data[1], bar_width, align="center", label="Expressway", alpha=0.5)
-    plt.bar(x_list + 2 * bar_width, data[2], bar_width, align="center", label="Highway", alpha=0.5)
+    plt.bar(x_list, data[0], bar_width, align="center", label="Residential", alpha=0.5)
+    plt.bar(x_list + bar_width, data[1], bar_width, align="center", label="Primary", alpha=0.5)
+    plt.bar(x_list + 2 * bar_width, data[2], bar_width, align="center", label="Motorway", alpha=0.5)
 
     for num_j, j in enumerate([x_list[0] - 0.1, x_list[0] + 0.04, x_list[0] + 0.18]):
         plt.text(j + 0.03, data[num_j, 0] + 0.3, f"{round(data[num_j, 0], 2)}")
@@ -88,7 +88,7 @@ def mean_distance_error_new():
     plt.yticks(np.arange(0, 21, 5), y_label)
 
     plt.legend(loc='upper right')
-
+    plt.savefig(r"C:\Users\11718\Desktop\新建文件夹\mean_distance_error_new.png")
     plt.show()
 
 
@@ -107,9 +107,9 @@ def accuracy():
     plt.figure(dpi=240)
     plt.title("Correct Matching Percentage")
     plt.ylabel("correct(%)")
-    plt.bar(x, data[0], bar_width, align="center", color="c", label="Branch", alpha=0.5)
-    plt.bar(x + bar_width, data[1], bar_width, color="b", align="center", label="Expressway", alpha=0.5)
-    plt.bar(x + 2 * bar_width, data[2], bar_width, color="r", align="center", label="Highway", alpha=0.5)
+    plt.bar(x, data[0], bar_width, align="center", color="c", label="Residential", alpha=0.5)
+    plt.bar(x + bar_width, data[1], bar_width, color="b", align="center", label="Primary", alpha=0.5)
+    plt.bar(x + 2 * bar_width, data[2], bar_width, color="r", align="center", label="Motorway", alpha=0.5)
 
     for num_j, j in enumerate([x[0] - 0.1, x[0] + 0.03, x[0] + 0.175]):
         plt.text(j + 0.06, data[num_j, 0] + 0.8, f"{round(data[num_j, 0], 1)}")
@@ -126,7 +126,7 @@ def accuracy():
     plt.yticks(np.arange(0, 111, 10), y_label)
 
     plt.legend(loc='upper right')
-
+    plt.savefig(r"C:\Users\11718\Desktop\新建文件夹\accuracy.png")
     plt.show()
 
 
@@ -270,9 +270,9 @@ def accuracy_efficiency():
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
-    ax.plot(y_runtime1, x_candi_num, z_accuracy1, label="Branch")
-    ax.plot(y_runtime2, x_candi_num, z_accuracy2, label="Expressway")
-    ax.plot(y_runtime3, x_candi_num, z_accuracy3, label="Highway")
+    ax.plot(y_runtime1, x_candi_num, z_accuracy1, label="Residential")
+    ax.plot(y_runtime2, x_candi_num, z_accuracy2, label="Primary")
+    ax.plot(y_runtime3, x_candi_num, z_accuracy3, label="Motorway")
 
     ax.set_title("Accuracy and efficiency")
     ax.set_xlabel('Runtime(s)')
@@ -281,7 +281,7 @@ def accuracy_efficiency():
 
     ax.legend(loc='upper center')
     ax.view_init(20, 130)
-
+    plt.savefig(r"C:\Users\11718\Desktop\新建文件夹\accuracy_efficiency")
     plt.show()
 
 
@@ -370,11 +370,12 @@ def three_d_tree():
 
 
 if __name__ == '__main__':
-    three_d_tree()
-    # read_data()
-    # mean_distance_error_new()
-    # accuracy()
-    # efficiency2()
+    # three_d_tree()
+    read_data()
+    mean_distance_error_new()
+    accuracy()
+    efficiency2()
+    accuracy_efficiency()
     # knn_efficiency()
     # shortest_path_efficiency()
     # lop_efficiency()
