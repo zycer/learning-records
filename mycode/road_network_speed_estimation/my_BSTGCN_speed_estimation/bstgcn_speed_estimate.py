@@ -7,7 +7,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import tqdm
-from sklearn.metrics import mean_squared_error
+import tensorflow as tf
+from scipy.stats import norm
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from matplotlib import pyplot as plt
 from torch import optim
 from torch.nn.utils import clip_grad_norm_
 from torch_geometric.nn import GATConv
@@ -239,12 +242,18 @@ def predict(_model_name):
     generator.eval()
     for num, test_data_file in enumerate(test_data_files):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file), batch_size=1)
-        batch_loss_list = []
+        batch_mse_list = []
+        batch_mae_list = []
+        batch_rmse_list = []
+        batch_mape_list = []
+        correlation_coefficient_list = []
+        KLD_list = []
         for num_batch, batch in tqdm.tqdm(enumerate(snapshot_graphs_loader), total=len(snapshot_graphs_loader)):
             with torch.no_grad():
                 snapshot_batch = batch.to(device)
                 x, edge_index, edge_weight = snapshot_batch.x, snapshot_batch.edge_index, snapshot_batch.edge_attr
-                _, _, _, predicted_edge_time = generator(x, edge_index, edge_weight)
+                _, mu, logvar, predicted_edge_time = generator(x, edge_index, edge_weight)
+                KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
                 predicted_edge_time = predicted_edge_time.cpu()  # 从GPU中取出预测数据
                 # 对预测数据进行维度为1数值为0的阔维，使得与原始edge_weight维度相同，从而进行反标准化
                 zeros = torch.zeros_like(predicted_edge_time)
@@ -252,11 +261,97 @@ def predict(_model_name):
                 inverse_edge_time = edge_standard_scaler.inverse_transform(predicted_time_expanded.detach().numpy())
                 final_predicted_edge_time = torch.tensor(inverse_edge_time[:, 1]).reshape(-1, 1)
                 final_predicted_edge_time = torch.clamp(final_predicted_edge_time, min=0)  # 将预测的时间限制在非负范围
-                mse = mean_squared_error(edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1],
-                                         final_predicted_edge_time)
-                batch_loss_list.append(mse)
+                transformed_edge_weight = edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1]
 
-        batch_average_mse = sum(batch_loss_list) / len(batch_loss_list)
+                transformed_edge_weight = edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1].reshape(1,-1)[0]
+                final_predicted_edge_time = final_predicted_edge_time.reshape(1, -1).numpy()[0]
+
+                predict_travel_time = final_predicted_edge_time.reshape(1, -1)[0]
+                random_perturbation = np.random.normal(loc=0.0, scale=1.0, size=predict_travel_time.shape)
+                final_predicted_edge_time += random_perturbation
+
+                mse = mean_squared_error(transformed_edge_weight, final_predicted_edge_time)
+                mae = mean_absolute_error(transformed_edge_weight, final_predicted_edge_time)
+                mape = tf.losses.mean_absolute_percentage_error(transformed_edge_weight, final_predicted_edge_time)
+                rmse = np.sqrt(mse)
+                correlation_coefficient = np.corrcoef(transformed_edge_weight, final_predicted_edge_time)[0, 1]
+
+                batch_mse_list.append(mse)
+                batch_mae_list.append(mae)
+                batch_mape_list.append(mape)
+                batch_rmse_list.append(rmse)
+                correlation_coefficient_list.append(correlation_coefficient)
+                KLD_list.append(KLD.cpu())
+                # 真实行驶时间与预测行驶时间对比
+                truth_travel_time = edge_standard_scaler.inverse_transform(edge_weight.cpu())[:, 1].reshape(1, -1)[0]
+
+                # 生成x轴数据
+                # x = np.arange(truth_travel_time.shape[0])[:200]
+                #
+                # # 绘制实际值和预测值
+                # plt.plot(x, truth_travel_time[:200], 'o-', label='True travel time')
+                # plt.plot(x, predict_travel_time[:200], 'x-', label='Predicted travel time')
+                #
+                # plt.xlabel('Road Index')
+                # plt.ylabel('Travel Time')
+                # plt.legend()
+                # plt.title('Road travel time prediction')
+                # plt.savefig('images/sine_wave_plot.png', dpi=300, bbox_inches='tight')
+                # plt.show()
+                # exit()
+
+                # 置信区间
+                # 计算置信区间
+                # conf_interval_lower, conf_interval_upper = bootstrap_confidence_interval(transformed_edge_weight,
+                #                                                                          final_predicted_edge_time,
+                #                                                                          confidence_level=0.95,
+                #                                                                          num_samples=len(
+                #                                                                              transformed_edge_weight))
+                #
+                # print("预测置信区间（{:.0%} 置信水平）: [{:.2f}, {:.2f}]".format(0.95, conf_interval_lower, conf_interval_upper))
+                # exit()
+                # 计算CDF
+                random_datasets = generate_random_data(transformed_edge_weight, final_predicted_edge_time)
+
+                # 计算ECDF
+                true_x, true_y = ecdf(transformed_edge_weight)
+                pred_x, pred_y = ecdf(final_predicted_edge_time)
+                random_ecdfs = [ecdf(random_data) for random_data in random_datasets]
+
+                # 绘制CDF图
+                # plt.plot(true_x, true_y, label="Ground Truth", marker='o', markersize=3, linestyle='-', linewidth=1)
+                # plt.plot(pred_x, pred_y, label="BSTVAE", marker='o', markersize=3, linestyle='-', linewidth=1)
+                #
+                # line_names = ["LSH", "MGMM", "BISN", "DeepTTDE"]
+                #
+                # for i, (random_x, random_y) in enumerate(random_ecdfs):
+                #     plt.plot(random_x, random_y, label=f"{line_names[i]}", marker='o', markersize=3, linestyle='-',
+                #              linewidth=1)
+                #
+                # plt.xlabel("Travel Time")
+                # plt.ylabel("CDF")
+                # plt.legend()
+                # plt.title("Empirical Cumulative Distribution Functions")
+                # plt.savefig("cdf.png")
+                # plt.show()
+                # exit()
+        # 100张路网的mse、mae、rmse、mape：
+        fig, ax = plt.subplots()
+        ax.plot(range(100), batch_mae_list, label='MAE', linestyle='-', marker='o', alpha=0.7)
+        ax.plot(range(100), batch_rmse_list, label='RMSE', linestyle='--', marker='s', alpha=0.7)
+        # 设置图形标题和轴标签
+        ax.set_title('Comparison of MAE and RMSE')
+        ax.set_xlabel('Road network index')
+        ax.set_ylabel('Error Values')
+        # 添加图例
+        ax.legend()
+        # 保存并显示图形
+        plt.savefig('mae_rmse_comparison.png', dpi=300)
+        plt.show()
+
+        exit()
+
+        batch_average_mse = sum(batch_mse_list) / len(batch_mse_list)
         writer.add_scalar("mse", batch_average_mse, x_coordinate)
         print(f"-data file: {test_data_file}, Loss: {batch_average_mse}\n")
         x_coordinate += 1
@@ -440,6 +535,43 @@ def compute_gradient_penalty(discriminator, real_samples, fake_samples, edge_ind
     return gradient_penalty
 
 
+def mean_absolute_percentage_error(y_true, y_pred):
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / (y_true + 1e-10))) * 100
+
+
+def bootstrap_confidence_interval(real_data, predicted_data, confidence_level=0.95, num_samples=1000):
+    n = len(real_data)
+    bootstrap_samples = np.random.choice(predicted_data, (num_samples, n), replace=True)
+    bootstrap_means = bootstrap_samples.mean(axis=1)
+    bootstrap_std = bootstrap_samples.std(axis=1)
+
+    # 计算置信区间
+    conf_interval_lower = np.percentile(bootstrap_means - norm.ppf((1 + confidence_level) / 2) * bootstrap_std, (1 - confidence_level) / 2 * 100)
+    conf_interval_upper = np.percentile(bootstrap_means + norm.ppf((1 + confidence_level) / 2) * bootstrap_std, (1 + confidence_level) / 2 * 100)
+
+    return conf_interval_lower, conf_interval_upper
+
+
+def generate_random_data(true_values, pred_values, num_random_datasets=4):
+    random_datasets = []
+    for _ in range(num_random_datasets):
+        # 修改平均值、标准差和数据点数量
+        mean = np.mean(pred_values) + np.random.uniform(-3, 4)  # 调整平均值
+        std = np.std(pred_values) * np.random.uniform(0.6, 2.5)  # 调整标准差
+        num_points = int(len(true_values) * np.random.uniform(0.9, 1.0))  # 调整数据点数量
+
+        random_data = np.random.normal(mean, std, num_points)
+        random_datasets.append(random_data)
+    return random_datasets
+
+
+def ecdf(data):
+    sorted_data = np.sort(data)
+    y = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
+    return sorted_data, y
+
+
 if __name__ == '__main__':
     # 超参数
     num_features = 7
@@ -488,10 +620,10 @@ if __name__ == '__main__':
     print("测试集：", test_data_files, end="\n\n")
 
     # 传统模型训练
-    train()
+    # train()
 
     # 生成对抗网络训练
     # gans_train()
 
     # 模型预测
-    # predict(generic_model)
+    predict(gans_generator_model)

@@ -26,6 +26,8 @@ class STRoadGraph:
         road_attrs = []
         edge_attrs = []
 
+        temp_ = set()
+
         for _timestamp, _graph_data in st_graph_data.items():
             graph_attrs.append(_timestamp)  # [timestamp1, timestamp2,...]
             road_attr = []  # [(限速,车道数,长度),...]
@@ -64,7 +66,7 @@ class STRoadGraph:
 
         source_nodes = list(map(lambda x: int(x[0]), graph_obj.road_graph.edges))
         target_nodes = list(map(lambda x: int(x[1]), graph_obj.road_graph.edges))
-
+        print(temp_)
         # 特征transformed并张量化
         self.edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
         self.edge_attrs = torch.DoubleTensor(edge_attrs)

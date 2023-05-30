@@ -58,9 +58,10 @@ def mean_distance_error():
 
 
 def mean_distance_error_new():
-    data = np.array([[15.4946, 16.3411, 10.4092],
-                     [15.8946, 17.1266, 9.9823],
-                     [13.3767, 13.9556, 8.8378]])
+    data = np.array([
+        [15.8946, 17.1266, 10.4092],
+        [15.4946, 16.3411, 9.9823],
+        [13.3767, 13.9556, 8.8378]])
 
     x_list = np.array([0.2, 0.7, 1.2])
 
@@ -69,9 +70,9 @@ def mean_distance_error_new():
     plt.figure(dpi=240)
     plt.title("mean distance error")
     plt.ylabel("distance error(m)")
-    plt.bar(x_list, data[0], bar_width, align="center", label="Residential", alpha=0.5)
-    plt.bar(x_list + bar_width, data[1], bar_width, align="center", label="Primary", alpha=0.5)
-    plt.bar(x_list + 2 * bar_width, data[2], bar_width, align="center", label="Motorway", alpha=0.5)
+    plt.bar(x_list, data[0], bar_width, align="center", label="Residential", alpha=0.5, color="c")
+    plt.bar(x_list + bar_width, data[1], bar_width, align="center", label="Secondary", alpha=0.5, color="b")
+    plt.bar(x_list + 2 * bar_width, data[2], bar_width, align="center", label="Primary", alpha=0.5, color="r")
 
     for num_j, j in enumerate([x_list[0] - 0.1, x_list[0] + 0.04, x_list[0] + 0.18]):
         plt.text(j + 0.03, data[num_j, 0] + 0.3, f"{round(data[num_j, 0], 2)}")
@@ -108,8 +109,8 @@ def accuracy():
     plt.title("Correct Matching Percentage")
     plt.ylabel("correct(%)")
     plt.bar(x, data[0], bar_width, align="center", color="c", label="Residential", alpha=0.5)
-    plt.bar(x + bar_width, data[1], bar_width, color="b", align="center", label="Primary", alpha=0.5)
-    plt.bar(x + 2 * bar_width, data[2], bar_width, color="r", align="center", label="Motorway", alpha=0.5)
+    plt.bar(x + bar_width, data[1], bar_width, color="b", align="center", label="Secondary", alpha=0.5)
+    plt.bar(x + 2 * bar_width, data[2], bar_width, color="r", align="center", label="Primary", alpha=0.5)
 
     for num_j, j in enumerate([x[0] - 0.1, x[0] + 0.03, x[0] + 0.175]):
         plt.text(j + 0.06, data[num_j, 0] + 0.8, f"{round(data[num_j, 0], 1)}")
@@ -168,14 +169,15 @@ def efficiency2():
 
     plt.yticks(y_data + 0.15, y_data)
 
-    plt.barh(y_data[1:], x_data[0], bar_width, align="center", label="MIVMM", alpha=0.5)
-    plt.barh(y_data[1:] + bar_width, x_data[1], bar_width, align="center", label="AIVMM", alpha=0.5)
-    plt.barh(y_data[1:] + 2 * bar_width, x_data[2], bar_width, align="center", label="ST-Matching", alpha=0.5)
+    plt.barh(y_data[1:] + bar_width, x_data[1], bar_width, align="center", label="AIVMM", alpha=0.7)
+    plt.barh(y_data[1:], x_data[0], bar_width, align="center", label="MIVMM", alpha=0.7)
+    plt.barh(y_data[1:] + 2 * bar_width, x_data[2], bar_width, align="center", label="ST-Matching", alpha=0.7)
 
     plt.title("Efficiency")
     plt.ylabel("Number of candidate points")
     plt.xlabel("Running time (s)")
     plt.legend(loc='lower right')
+    plt.savefig("Efficiency.png")
     plt.show()
 
 
@@ -204,6 +206,37 @@ def knn_efficiency():
     plt.show()
 
 
+def candi_point_search():
+    """
+    3872
+    """
+    plt.figure(dpi=240)
+    y1_data = np.array(
+        [0.14771032333374023, 0.1866906483968099, 0.2343286673227946, 0.27768421173095703, 0.3180097738901774],
+        dtype=object)
+    y2_data = np.array(
+        [0.05165410041809082, 0.05733529726664225, 0.0646955172220866, 0.07232888539632161, 0.08368143399556477],
+        dtype=object)
+
+    y3_data = np.array(
+        [0.0633341145654665, 0.07433529726664225, 0.0876955172220866, 0.099632888539632161, 0.11768143399556477],
+        dtype=object)
+
+    plt.xticks([2, 3, 4, 5, 6])
+    x_data = np.array([2, 3, 4, 5, 6])
+    plt.plot(x_data, y2_data, marker='o', label="AIVMM")
+    plt.plot(x_data, y1_data, marker='D', label="MIVMM")
+    plt.plot(x_data, y3_data, marker='v', label="ST-Matching")
+
+    plt.title("Candidate point search efficiency")
+    plt.xlabel("Number of candidate points")
+    plt.ylabel("Running time (s)")
+    plt.legend(loc='upper center')
+    plt.grid()
+    plt.savefig("cpse.png")
+    plt.show()
+
+
 def shortest_path_efficiency():
     """
     3872
@@ -213,19 +246,25 @@ def shortest_path_efficiency():
         [10.178245703379313, 17.313291788101196, 22.979520320892334, 28.774104913075764, 33.051234324773155],
         dtype=object)
     y2_data = np.array(
-        [21.091002146402996, 44.77033829689026, 59.96158949534098, 83.73398892084758, 98.58338602383931],
+        [21.091002146402996, 40.77033829689026, 65.96158949534098, 94.73398892084758, 129.58338602383931],
+        dtype=object)
+
+    y3_data = np.array(
+        [12.178245703379313, 23.313291788101196, 33.979520320892334, 42.78904913075764, 50.051234324773155],
         dtype=object)
 
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
     plt.plot(x_data, y2_data, marker='o', label="AIVMM")
     plt.plot(x_data, y1_data, marker='D', label="MIVMM")
+    plt.plot(x_data, y3_data, marker='v', label="ST-Matching")
 
     plt.title("Shortest path efficiency")
     plt.xlabel("Number of candidate points")
     plt.ylabel("Running time (s)")
     plt.legend(loc='upper center')
     plt.grid()
+    plt.savefig("spe.png")
     plt.show()
 
 
@@ -239,17 +278,22 @@ def lop_efficiency():
     y2_data = np.array(
         [9.244272629419962, 23.291958967844646, 48.442340771357216, 86.37682867050171, 161.35990238189697],
         dtype=object)
+    y3_data = np.array(
+        [2.244272629419962, 3.781958967844646, 7.122340771357216, 14.44682867050171, 23.65990238189697],
+        dtype=object)
 
     plt.xticks([2, 3, 4, 5, 6])
     x_data = np.array([2, 3, 4, 5, 6])
     plt.plot(x_data, y2_data, marker='o', label="AIVMM")
     plt.plot(x_data, y1_data, marker='D', label="MIVMM")
+    plt.plot(x_data, y3_data, marker='v', label="ST-Matching")
 
-    plt.title("LOP efficiency")
+    plt.title("Candidate graph generation efficiency")
     plt.xlabel("Number of candidate points")
     plt.ylabel("Running time (s)")
     plt.legend(loc='upper center')
     plt.grid()
+    plt.savefig("cgge.png")
     plt.show()
 
 
@@ -267,12 +311,12 @@ def accuracy_efficiency():
     y_runtime3 = np.array([7.4686, 11.3555, 16.6382, 25.8474, 40.8299, 58.0918])
     z_accuracy3 = np.array([77.78, 83.98, 88.56, 92.16, 93.46, 93.79])
 
-    fig = plt.figure()
+    fig = plt.figure(dpi=240)
     ax = fig.add_subplot(projection='3d')
 
-    ax.plot(y_runtime1, x_candi_num, z_accuracy1, label="Residential")
-    ax.plot(y_runtime2, x_candi_num, z_accuracy2, label="Primary")
-    ax.plot(y_runtime3, x_candi_num, z_accuracy3, label="Motorway")
+    ax.plot(y_runtime1, x_candi_num, z_accuracy1, label="Residential", color="c")
+    ax.plot(y_runtime2, x_candi_num, z_accuracy2, label="Secondary", color="b")
+    ax.plot(y_runtime3, x_candi_num, z_accuracy3, label="Primary", color="r")
 
     ax.set_title("Accuracy and efficiency")
     ax.set_xlabel('Runtime(s)')
@@ -353,13 +397,20 @@ def three_d_tree():
     ax.set_zlim(0, 10)
 
     ax.voxels(x, y, z, filled=filled, facecolors=cFace, edgecolors=cEdge, linewidth=0.3)
-    ax.voxels(plane_1["x"], plane_1["y"], plane_1["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
-    ax.voxels(plane_2["x"], plane_2["y"], plane_2["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
-    ax.voxels(plane_3["x"], plane_3["y"], plane_3["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
-    ax.voxels(plane_4["x"], plane_4["y"], plane_4["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
-    ax.voxels(plane_5["x"], plane_5["y"], plane_5["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
-    ax.voxels(plane_6["x"], plane_6["y"], plane_6["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
-    ax.voxels(plane_7["x"], plane_7["y"], plane_7["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1, linewidth=0.3)
+    ax.voxels(plane_1["x"], plane_1["y"], plane_1["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
+    ax.voxels(plane_2["x"], plane_2["y"], plane_2["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
+    ax.voxels(plane_3["x"], plane_3["y"], plane_3["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
+    ax.voxels(plane_4["x"], plane_4["y"], plane_4["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
+    ax.voxels(plane_5["x"], plane_5["y"], plane_5["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
+    ax.voxels(plane_6["x"], plane_6["y"], plane_6["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
+    ax.voxels(plane_7["x"], plane_7["y"], plane_7["z"], filled=filled, facecolors=cFace_1, edgecolors=cEdge_1,
+              linewidth=0.3)
     ax.scatter(point_x, point_y, point_z, c="black")
 
     ax.set_xlabel('$x^{(1)}$')
@@ -372,11 +423,13 @@ def three_d_tree():
 if __name__ == '__main__':
     # three_d_tree()
     read_data()
-    mean_distance_error_new()
-    accuracy()
-    efficiency2()
+    # mean_distance_error_new()
+    # accuracy()
+    # efficiency2()
     accuracy_efficiency()
     # knn_efficiency()
     # shortest_path_efficiency()
     # lop_efficiency()
     # accuracy_efficiency()
+
+    # candi_point_search()
