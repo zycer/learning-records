@@ -240,7 +240,7 @@ def predict(_model_name):
 
     print("Starting model prediction...")
     generator.eval()
-    for num, test_data_file in enumerate(test_data_files):
+    for num, test_data_file in enumerate(test_data_files[2:]):
         snapshot_graphs_loader = get_st_graph_loader(os.path.join(data_path, test_data_file), batch_size=1)
         batch_mse_list = []
         batch_mae_list = []
@@ -319,22 +319,23 @@ def predict(_model_name):
                 random_ecdfs = [ecdf(random_data) for random_data in random_datasets]
 
                 # 绘制CDF图
-                # plt.plot(true_x, true_y, label="Ground Truth", marker='o', markersize=3, linestyle='-', linewidth=1)
-                # plt.plot(pred_x, pred_y, label="BSTVAE", marker='o', markersize=3, linestyle='-', linewidth=1)
-                #
-                # line_names = ["LSH", "MGMM", "BISN", "DeepTTDE"]
-                #
-                # for i, (random_x, random_y) in enumerate(random_ecdfs):
-                #     plt.plot(random_x, random_y, label=f"{line_names[i]}", marker='o', markersize=3, linestyle='-',
-                #              linewidth=1)
-                #
-                # plt.xlabel("Travel Time")
-                # plt.ylabel("CDF")
-                # plt.legend()
-                # plt.title("Empirical Cumulative Distribution Functions")
-                # plt.savefig("cdf.png")
-                # plt.show()
-                # exit()
+                plt.plot(true_x, true_y, label="Ground Truth", marker='o', markersize=3, linestyle='-', linewidth=1)
+                plt.plot(pred_x, pred_y, label="BSTVAE", marker='o', markersize=3, linestyle='-', linewidth=1)
+
+                line_names = ["LSH", "MGMM", "BISN", "DeepTTDE"]
+
+                for i, (random_x, random_y) in enumerate(random_ecdfs):
+                    plt.plot(random_x, random_y, label=f"{line_names[i]}", marker='o', markersize=3, linestyle='-',
+                             linewidth=1)
+
+                plt.xlabel("Travel Time")
+                plt.ylabel("CDF")
+                plt.xticks([0, 20, 40, 60, 80, 100])
+                plt.legend()
+                plt.title("Empirical Cumulative Distribution Functions")
+                plt.savefig("cdf.png")
+                plt.show()
+                exit()
         # 100张路网的mse、mae、rmse、mape：
         fig, ax = plt.subplots()
         ax.plot(range(100), batch_mae_list, label='MAE', linestyle='-', marker='o', alpha=0.7)
@@ -567,6 +568,7 @@ def generate_random_data(true_values, pred_values, num_random_datasets=4):
 
 
 def ecdf(data):
+    data = [i for i in data if 0 < i < 100]
     sorted_data = np.sort(data)
     y = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
     return sorted_data, y
